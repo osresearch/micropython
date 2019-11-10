@@ -6,19 +6,19 @@
  * Gecko_SDK/platform/Device/SiliconLabs/EFR32MG1P/Include/efm32mg1p_usart.h
  */
 
-#if MICROPY_MIN_USE_STM32_MCU
+#if MICROPY_MIN_USE_CORTEX_CPU
 #include "em_usart.h"
 #include "em_cmu.h"
 #include "em_gpio.h"
 
 #define USART USART1
 #define USART_CLOCK  cmuClock_USART1
-#define USART_TX_PORT gpioPortB
-#define USART_TX_PIN 14
-#define USART_TX_LOCATION 9 // ? found in af_pins.h somehow
-#define USART_RX_PORT gpioPortB
-#define USART_RX_PIN 15
-#define USART_RX_LOCATION 9 // ?
+#define USART_TX_PORT gpioPortC
+#define USART_TX_PIN 10
+#define USART_TX_LOCATION 15 // ? found in af_pins.h somehow
+#define USART_RX_PORT gpioPortC
+#define USART_RX_PIN 11
+#define USART_RX_LOCATION 15 // ?
 
 // might be pa0, pa1, pb12 or pb13
 #define LED_PORT gpioPortB
@@ -32,8 +32,8 @@ int mp_hal_stdin_rx_chr(void) {
 #if MICROPY_MIN_USE_STDOUT
     int r = read(0, &c, 1);
     (void)r;
-#elif MICROPY_MIN_USE_STM32_MCU
-    return USART_Rx(USART);
+#elif MICROPY_MIN_USE_CORTEX_CPU
+    c = USART_Rx(USART);
 #endif
     return c;
 }
@@ -43,14 +43,9 @@ void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
 #if MICROPY_MIN_USE_STDOUT
     int r = write(1, str, len);
     (void)r;
-#elif MICROPY_MIN_USE_STM32_MCU
+#elif MICROPY_MIN_USE_CORTEX_CPU
     while (len--) {
-	unsigned char c = *str++;
-        USART_Tx(USART, c);
-	if (c & 0x80)
-		GPIO_PinOutSet(LED_PORT, LED_PIN);
-	else
-		GPIO_PinOutClear(LED_PORT, LED_PIN);
+        USART_Tx(USART, *str++);
     }
 #endif
 }
@@ -59,7 +54,7 @@ void mp_hal_stdout_init(void)
 {
 #if MICROPY_MIN_USE_STDOUT
     return;
-#elif MICROPY_MIN_USE_STM32_MCU
+#elif MICROPY_MIN_USE_CORTEX_CPU
     // 115200 n81
     CMU_ClockEnable(USART_CLOCK, true);
     CMU_ClockEnable(cmuClock_GPIO, true);
@@ -80,60 +75,6 @@ void mp_hal_stdout_init(void)
   // Enable TX/RX
   USART->CMD = USART_CMD_RXEN
                 | USART_CMD_TXEN;
-
-#if 0
-  // Clock peripherals
-  CMU_ClockEnable(cmuClock_HFPER, true);
-  CMU_ClockEnable(cmuClock_LDMA, true);
-  CMU_ClockEnable(UART_CLOCK, true);
-
-  // Set up USART
-  USART->CMD       = USART_CMD_RXDIS
-                      | USART_CMD_TXDIS
-                      | USART_CMD_MASTERDIS
-                      | USART_CMD_RXBLOCKDIS
-                      | USART_CMD_TXTRIDIS
-                      | USART_CMD_CLEARTX
-                      | USART_CMD_CLEARRX;
-  USART->CTRL      = _USART_CTRL_RESETVALUE;
-  USART->CTRLX     = _USART_CTRLX_RESETVALUE;
-  USART->FRAME     = _USART_FRAME_RESETVALUE;
-  USART->TRIGCTRL  = _USART_TRIGCTRL_RESETVALUE;
-  USART->CLKDIV    = _USART_CLKDIV_RESETVALUE;
-  USART->IEN       = _USART_IEN_RESETVALUE;
-  USART->IFC       = _USART_IFC_MASK;
-  USART->ROUTEPEN  = _USART_ROUTEPEN_RESETVALUE;
-  USART->ROUTELOC0 = _USART_ROUTELOC0_RESETVALUE;
-  USART->ROUTELOC1 = _USART_ROUTELOC1_RESETVALUE;
-
-  // Configure databits, stopbits and parity
-  USART->FRAME = USART_FRAME_DATABITS_EIGHT
-                  | USART_FRAME_STOPBITS_ONE
-                  | USART_FRAME_PARITY_NONE;
-
-  // Configure oversampling and baudrate
-  USART->CTRL |= USART_CTRL_OVS_X16;
-
-  if(CMU->HFCLKSTATUS == CMU_HFCLKSTATUS_SELECTED_HFRCO) {
-    refFreq = 19000000;
-  } else {
-    refFreq = 38400000;
-  }
-
-  clkdiv = 32 * refFreq + (16 * UART_BAUDRATE) / 2;
-  clkdiv /= (16 * UART_BAUDRATE);
-  clkdiv -= 32;
-  clkdiv *= 8;
-
-  // Verify that resulting clock divider is within limits
-  BTL_ASSERT(clkdiv <= _USART_CLKDIV_DIV_MASK);
-
-  // If asserts are not enabled, make sure we don't write to reserved bits
-  clkdiv &= _USART_CLKDIV_DIV_MASK;
-
-  USART->CLKDIV = clkdiv;
-
-#endif
 #endif
 }
 

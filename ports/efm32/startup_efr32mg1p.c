@@ -35,6 +35,7 @@
 
 #include <stdint.h>
 #define __NO_SYSTEM_INIT
+#define __STARTUP_CLEAR_BSS
 
 /*----------------------------------------------------------------------------
   Linker generated Symbols

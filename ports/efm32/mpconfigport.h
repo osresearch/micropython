@@ -76,8 +76,11 @@ typedef long mp_off_t;
 #define MP_PLAT_PRINT_STRN(str, len) mp_hal_stdout_tx_strn_cooked(str, len)
 
 // extra built in names to add to the global namespace
+extern const struct _mp_obj_module_t mp_module_gpio;
+
 #define MICROPY_PORT_BUILTINS \
-    { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&mp_builtin_open_obj) },
+    { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&mp_builtin_open_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_gpio), (mp_obj_t) &mp_module_gpio }, \
 
 // We need to provide a declaration/definition of alloca()
 #include <alloca.h>

@@ -20,10 +20,6 @@
 #define USART_RX_PIN 11
 #define USART_RX_LOCATION 15 // ?
 
-// might be pa0, pa1, pb12 or pb13
-#define LED_PORT gpioPortB
-#define LED_PIN 13
-
 #endif
 
 // Receive single character
@@ -62,8 +58,6 @@ void mp_hal_stdout_init(void)
     static const USART_InitAsync_TypeDef config = USART_INITASYNC_DEFAULT;
     USART_InitAsync(USART, &config);
 
-  GPIO_PinModeSet(LED_PORT, LED_PIN, gpioModePushPull, 0);
-
   GPIO_PinModeSet(USART_TX_PORT, USART_TX_PIN, gpioModePushPull, 1);
   GPIO_PinModeSet(USART_RX_PORT, USART_RX_PIN, gpioModeInput, 1);
 
@@ -76,12 +70,4 @@ void mp_hal_stdout_init(void)
   USART->CMD = USART_CMD_RXEN
                 | USART_CMD_TXEN;
 #endif
-}
-
-void gpio(int value)
-{
-	if (value)
-		GPIO_PinOutSet(LED_PORT, LED_PIN);
-	else
-		GPIO_PinOutClear(LED_PORT, LED_PIN);
 }

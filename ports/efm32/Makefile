@@ -48,6 +48,7 @@ SRC_C = \
 	system_efr32mg1p.c \
 	main.c \
 	uart_core.c \
+	gpio.c \
 	lib/utils/printf.c \
 	lib/utils/stdout_helpers.c \
 	lib/utils/pyexec.c \

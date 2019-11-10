@@ -36,6 +36,7 @@ int main(int argc, char **argv) {
     stack_top = (char*)&stack_dummy;
 
     extern void mp_hal_stdout_init(void);
+    extern char mp_hal_stdin_rx_chr(void);
     mp_hal_stdout_init();
 
     #if MICROPY_ENABLE_GC

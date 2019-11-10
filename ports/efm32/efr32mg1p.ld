@@ -129,6 +129,7 @@ SECTIONS
   } > FLASH
   */
 
+  . = ALIGN (4);
   __etext = .;
 
   .data : AT (__etext)

@@ -74,36 +74,7 @@ static const RAIL_TxPowerConfig_t paInit2p4 = {
 	.rampTime		= 10,
 };
 
-/*
-#ifndef APP_MAX_PACKET_LENGTH
-#define APP_MAX_PACKET_LENGTH  (MAX_BUFFER_SIZE - sizeof(RAIL_RxPacketInfo_t))
-#endif
-
-static const RAIL_Init_t railInitParams = {
-	.maxPacketLength	= APP_MAX_PACKET_LENGTH,
-	.rfXtalFreq		= RADIO_CONFIG_XTAL_FREQUENCY,
-	.calEnable		= RAIL_CAL_ALL,
-};
-
-static const RAIL_CalInit_t railCalInitParams = {
-	.calEnable		= RAIL_CAL_ALL,
-	.irCalSettings		= irCalConfig,
-};
-*/
-
-
 static uint8_t MAC_address[8];
-
-#if 0
-// Long address with OTA byte order of 0x11 0x22 0x33 0x44 0x55 0x66 0x77 0x88
-
-// PanID OTA value of 0x34 0x12
-// Short Address OTA byte order of 0x78 0x56
-static const RAIL_IEEE802154_AddrConfig_t nodeAddress = {
-	0x1234, 0x5678,
-	&longAddress[0]
-};
-#endif
 
 /*
  * Called when radio calibration is required
@@ -119,11 +90,13 @@ static void rail_callback_rfready(RAIL_Handle_t rail)
 	radio_state = RADIO_IDLE;
 }
 
+static volatile int rx_buffer_valid;
+static uint8_t rx_buffer[MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
+
 static void process_packet(RAIL_Handle_t rail)
 {
 	RAIL_RxPacketInfo_t info;
 	RAIL_RxPacketHandle_t handle = RAIL_GetRxPacketInfo(rail, RAIL_RX_PACKET_HANDLE_NEWEST, &info);
-	static uint8_t rx_buffer[MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
 	if (info.packetStatus != RAIL_RX_PACKET_READY_SUCCESS)
 		return;
 
@@ -147,6 +120,7 @@ static void process_packet(RAIL_Handle_t rail)
 		details.timeReceived.totalPacketBytes = 0;
 		RAIL_GetRxPacketDetails(rail, handle, &details);
 		RAIL_CopyRxPacket(rx_buffer, &info);
+		rx_buffer_valid = 1;
 
 		// cancel the ACK if the sender did not request one
 		// buffer[0] == length
@@ -155,6 +129,7 @@ static void process_packet(RAIL_Handle_t rail)
 		if ((rx_buffer[1] & (1 << 5)) == 0)
 			RAIL_CancelAutoAck(rail);
 
+#if 0
 		printf("rx %2d bytes lqi=%d rssi=%d:", info.packetBytes, details.lqi, details.rssi);
 
 		// skip the length byte
@@ -163,6 +138,7 @@ static void process_packet(RAIL_Handle_t rail)
 			printf(" %02x", rx_buffer[i]);
 		}
 		printf("\n");
+#endif
 	}
 
 	RAIL_ReleaseRxPacket(rail, handle);
@@ -270,48 +246,35 @@ RAILCb_IEEE802154_DataRequestCommand(
 }
 
 
-#define LED_PORT gpioPortB
-#define LED_PIN 13
+#endif
 
-static mp_obj_t gpio_set(mp_obj_t arg)
+static mp_obj_t radio_rxbytes_get(void) // mp_obj_t arg)
 {
-	static int mode_set;
-	if (!mode_set)
-	{
-		mode_set = 1;
-		GPIO_PinModeSet(LED_PORT, LED_PIN, gpioModePushPull, 0);
-	}
+	if (!rx_buffer_valid)
+		return mp_const_none;
+	rx_buffer_valid = 0;
 
-	mp_int_t val = mp_obj_int_get_checked(arg);
-
-	//printf("gpio called arg=%d\n", val);
-
-	if (val)
-		GPIO_PinOutSet(LED_PORT, LED_PIN);
-	else
-		GPIO_PinOutClear(LED_PORT, LED_PIN);
-	return mp_const_none;
+	return mp_obj_new_bytearray(rx_buffer[0], rx_buffer+1);
 }
 
-MP_DEFINE_CONST_FUN_OBJ_1(gpio_set_obj, gpio_set);
+MP_DEFINE_CONST_FUN_OBJ_0(radio_rxbytes_obj, radio_rxbytes_get);
 
-STATIC const mp_map_elem_t gpio_globals_table[] = {
-    { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_gpio) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_set), (mp_obj_t) &gpio_set_obj },
+STATIC const mp_map_elem_t radio_globals_table[] = {
+    { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_radio) },
+    //{ MP_OBJ_NEW_QSTR(MP_QSTR_set), (mp_obj_t) &gpio_set_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_get), (mp_obj_t) &radio_rxbytes_obj },
 };
 
 STATIC MP_DEFINE_CONST_DICT (
-    mp_module_gpio_globals,
-    gpio_globals_table
+    mp_module_radio_globals,
+    radio_globals_table
 );
 
-const mp_obj_module_t mp_module_gpio = {
+const mp_obj_module_t mp_module_radio = {
     .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t*)&mp_module_gpio_globals,
+    .globals = (mp_obj_dict_t*)&mp_module_radio_globals,
 };
 
-
-#endif
 
 int radio_init(void)
 {

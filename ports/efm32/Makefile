@@ -16,15 +16,35 @@ endif
 INC += -I.
 INC += -Igecko_sdk/include
 INC += -Iemlib/inc
+# should the radio lib be optional?
+INC += -Irail
+LIBS += rail/TARGET_EFR32_1/librail_efr32xg1_release.a
+
+# does this m4 have hardfloat?
+#LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/libgcc.a
+LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/v7e-m/fpv4-sp/softfp/libgcc.a
+
 INC += -I$(TOP)
 INC += -I$(BUILD)
 
 ifeq ($(CROSS), 1)
 DFU = $(TOP)/tools/dfu.py
 PYDFU = $(TOP)/tools/pydfu.py
-CFLAGS_CORTEX_M4 = -g -mthumb -mtune=cortex-m4 -mcpu=cortex-m4 -msoft-float -fsingle-precision-constant -Wdouble-promotion
-CFLAGS = $(INC) -Wall -Werror -std=c99 -nostdlib $(CFLAGS_CORTEX_M4) $(COPT) -DEFR32MG1P132F256GM32
-LDFLAGS = -nostdlib -T efr32mg1p.ld -Map=$@.map --cref --gc-sections
+CFLAGS_CORTEX_M4 = \
+	-mthumb \
+	-mtune=cortex-m4 \
+	-mcpu=cortex-m4 \
+	-msoft-float \
+	-fsingle-precision-constant \
+	-Wdouble-promotion \
+	-DEFR32MG1P132F256GM32 \
+	-falign-functions=2 \
+
+#LINKER_SCRIPT = tradfri-10w.ld
+LINKER_SCRIPT = efr32mg1p.ld
+
+CFLAGS = $(INC) -g -Wall -Werror -std=c99 -nostdlib $(CFLAGS_CORTEX_M4) $(COPT)
+LDFLAGS = -nostdlib -T $(LINKER_SCRIPT) -Map=$@.map --cref --gc-sections
 else
 LD = gcc
 CFLAGS = -m32 $(INC) -Wall -Werror -std=c99 $(COPT)
@@ -41,14 +61,11 @@ CFLAGS += -Os -DNDEBUG
 CFLAGS += -fdata-sections -ffunction-sections
 endif
 
-LIBS =
-
 SRC_C = \
-	startup_efr32mg1p.c \
-	system_efr32mg1p.c \
 	main.c \
 	uart_core.c \
 	gpio.c \
+	radio.c \
 	lib/utils/printf.c \
 	lib/utils/stdout_helpers.c \
 	lib/utils/pyexec.c \
@@ -57,10 +74,18 @@ SRC_C = \
 	../emlib/src/em_usart.c \
 	../emlib/src/em_cmu.c \
 	../emlib/src/em_gpio.c \
+	../emlib/src/em_system.c \
 	$(BUILD)/_frozen_mpy.c \
+	system_efr32mg1p.c \
+	startup_efr32mg1p.c \
 
+# If we're using RAIL for the radio, more modules are needed
+SRC_C += \
+	../emlib/src/em_core.c \
+	../emlib/src/em_emu.c \
 
-OBJ = $(PY_CORE_O) $(addprefix $(BUILD)/, $(SRC_C:.c=.o))
+OBJ = $(PY_CORE_O) \
+	$(addprefix $(BUILD)/, $(SRC_C:.c=.o)) \
 
 ifeq ($(CROSS), 1)
 all: $(BUILD)/firmware.dfu
@@ -86,6 +111,22 @@ $(BUILD)/firmware.elf: $(OBJ)
 
 $(BUILD)/firmware.bin: $(BUILD)/firmware.elf
 	$(Q)$(OBJCOPY) -O binary -j .isr_vector -j .text -j .data $^ $(BUILD)/firmware.bin
+
+$(BUILD)/led10w.bin: $(BUILD)/firmware.bin
+	cp "$<" "$@"
+	dd if="$(HOME)/ikea/led10w.bin" of="$@" bs=1024 count=196 conv=notrunc
+	# fixup the stack pointer to make room for our bss
+	perl -e 'print pack("V", 0x200041c0 - 0x800)' \
+		| dd of="$@" bs=1 seek=16384 conv=notrunc # 0x4000
+	# jump to microptyhon_setup in place of the nvram check
+	# ldr r0, [pc,#4]; ldr r0, [r0]; blx r0; bx lr ; ADDRESS
+	perl -e 'print pack("H*V", "0148006800477047", 0x31000)' \
+		| dd of="$@" bs=1 seek=60260 conv=notrunc # 0xeb64
+no:
+	# jump to micropython_loop in the serial buffer loop
+	# ldr r0, [pc,#4]; ldr r0, [r0]; bx r0; bx lr ; ADDRESS
+	perl -e 'print pack("H*V", "0148006800477047", 0x31004)' \
+		| dd of="$@" bs=1 seek=34436 conv=notrunc # 0x8684
 
 $(BUILD)/firmware.dfu: $(BUILD)/firmware.bin
 	$(ECHO) "Create $@"

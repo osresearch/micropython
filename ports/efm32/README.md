@@ -54,6 +54,21 @@ option to "0" in the mpconfigport.h file in this directory.  Then
 recompile and run the firmware and it will execute the frozentest.py
 file.
 
+# RAIL
+
+The RAIL library overrides some interrupts, which are marked as `weak` in startup code:
+* ` RFSENSE_IRQHandler`
+* ` AGC_IRQHandler`
+* ` BUFC_IRQHandler`
+* ` FRC_IRQHandler`
+* ` FRC_PRI_IRQHandler`
+* ` MODEM_IRQHandler`
+* ` PROTIMER_IRQHandler`
+* ` RAC_RSM_IRQHandler`
+* ` RAC_SEQ_IRQHandler`
+* ` SYNTH_IRQHandler`
+
+
 # Licensing
 
 Micropython is redistributed under a MIT license.  See `../../LICENSE`
@@ -95,3 +110,4 @@ copyright ARM Limited and are redistributed under an unmodified 3-clause BSD lic
      specific prior written permission.
 ```
 
+The RAIL RF modem library has its own license in `rail/Silabs_License_Agreement.txt`

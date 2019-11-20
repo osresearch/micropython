@@ -32,6 +32,7 @@ typedef enum {
 
 static siliconlabs_modem_state_t radio_state = RADIO_UNINIT;
 
+static int channel = 11;
 static volatile RAIL_Handle_t rail = NULL;
 static void rail_callback_events(RAIL_Handle_t rail, RAIL_Events_t events);
 
@@ -42,6 +43,14 @@ static RAIL_Config_t rail_config = {
 	.scheduler		= NULL, // not multi-protocol
 	.buffer			= {}, // must be zero
 };
+
+static const RAIL_DataConfig_t rail_data_config = {
+	.txSource = TX_PACKET_DATA,
+	.rxSource = RX_PACKET_DATA,
+	.txMethod = PACKET_MODE,
+	.rxMethod = PACKET_MODE,
+};
+
 
 static const RAIL_IEEE802154_Config_t ieee802154_config = {
 	.promiscuousMode	= true,
@@ -76,6 +85,8 @@ static const RAIL_TxPowerConfig_t paInit2p4 = {
 	.rampTime		= 10,
 };
 
+static const RAIL_CsmaConfig_t csma_config = RAIL_CSMA_CONFIG_802_15_4_2003_2p4_GHz_OQPSK_CSMA;
+
 static uint8_t MAC_address[8];
 
 /*
@@ -95,6 +106,9 @@ static void rail_callback_rfready(RAIL_Handle_t rail)
 static volatile int rx_buffer_valid;
 static uint8_t rx_buffer[MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
 static uint8_t rx_buffer_copy[MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
+
+static uint8_t tx_buffer[MAC_PACKET_MAX_LENGTH];
+static volatile int tx_pending;
 
 static void process_packet(RAIL_Handle_t rail)
 {
@@ -122,7 +136,7 @@ static void process_packet(RAIL_Handle_t rail)
 		details.timeReceived.timePosition = RAIL_PACKET_TIME_DEFAULT;
 		details.timeReceived.totalPacketBytes = 0;
 		RAIL_GetRxPacketDetails(rail, handle, &details);
-		RAIL_CopyRxPacket(rx_buffer, &info);
+		RAIL_CopyRxPacket(rx_buffer, &info); // puts the length in byte 0
 		rx_buffer_valid = 1;
 
 		// cancel the ACK if the sender did not request one
@@ -203,6 +217,8 @@ static void rail_callback_events(RAIL_Handle_t rail, RAIL_Events_t events)
 	if (events & RAIL_EVENT_TX_PACKET_SENT)
 	{
 		// they are done with our packet, maybe signal something?
+		//printf("TX done!\n");
+		tx_pending = 0;
 	}
 
 	if (events & RAIL_EVENT_CAL_NEEDED)
@@ -276,10 +292,53 @@ static mp_obj_t radio_rxbytes_get(void)
 
 MP_DEFINE_CONST_FUN_OBJ_0(radio_rxbytes_obj, radio_rxbytes_get);
 
+/*
+ * Send a byte buffer to the radio.
+ */
+static mp_obj_t radio_txbytes(mp_obj_t buf_obj)
+{
+	if (tx_pending)
+		mp_raise_ValueError("tx pending");
+
+	mp_buffer_info_t buf;
+	mp_get_buffer_raise(buf_obj, &buf, MP_BUFFER_READ);
+	unsigned len = buf.len;
+	if (len > MAC_PACKET_MAX_LENGTH)
+		mp_raise_ValueError("tx length too long");
+	tx_buffer[0] = 2 + (uint8_t) buf.len; // include hardware FCS
+	memcpy(tx_buffer+1, buf.buf, len);
+
+	CORE_ATOMIC_IRQ_DISABLE();
+
+	tx_pending = 1;
+	radio_state = RADIO_TX;
+	RAIL_Idle(rail, RAIL_IDLE_ABORT, true);
+	RAIL_SetTxFifo(rail, tx_buffer, len + 1, len + 1);
+	RAIL_TxOptions_t txOpt = RAIL_TX_OPTIONS_DEFAULT;
+
+	// check if we're waiting for an ack, but not yet implemented
+	if (tx_buffer[1+1] & (1 << 5))
+	{
+		txOpt |= RAIL_TX_OPTION_WAIT_FOR_ACK;
+	}
+
+	// start the transmit, we hope!
+	int rc = RAIL_StartCcaCsmaTx(rail, channel, txOpt, &csma_config, NULL);
+
+	CORE_ATOMIC_IRQ_ENABLE();
+
+	if (rc == 0)
+		return mp_const_none;
+
+	mp_raise_ValueError("tx failed");
+}
+
+MP_DEFINE_CONST_FUN_OBJ_1(radio_txbytes_obj, radio_txbytes);
+
 STATIC const mp_map_elem_t radio_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_radio) },
-    //{ MP_OBJ_NEW_QSTR(MP_QSTR_set), (mp_obj_t) &gpio_set_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_get), (mp_obj_t) &radio_rxbytes_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_set), (mp_obj_t) &radio_txbytes_obj },
 };
 
 STATIC MP_DEFINE_CONST_DICT (
@@ -298,6 +357,7 @@ int radio_init(void)
 	printf("%s: mac %08x:%08x\n", __func__, (unsigned int) DEVINFO->UNIQUEH, (unsigned int) DEVINFO->UNIQUEL);
 
 	rail = RAIL_Init(&rail_config, rail_callback_rfready);
+	RAIL_ConfigData(rail, &rail_data_config);
 	RAIL_ConfigCal(rail, RAIL_CAL_ALL);
 	RAIL_IEEE802154_Config2p4GHzRadio(rail);
 	RAIL_IEEE802154_Init(rail, &ieee802154_config);
@@ -320,7 +380,6 @@ int radio_init(void)
 
 	// start the radio
 	RAIL_Idle(rail, RAIL_IDLE_FORCE_SHUTDOWN_CLEAR_FLAGS, true);
-	int channel = 11;
 	radio_state = RADIO_RX;
 	RAIL_StartRx(rail, channel, NULL);
 

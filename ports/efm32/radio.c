@@ -3,6 +3,7 @@
 #include "py/obj.h"
 #include "py/runtime.h"
 #include "py/binary.h"
+#include "py/objarray.h"
 #include "em_gpio.h"
 #include "em_cmu.h"
 
@@ -92,6 +93,7 @@ static void rail_callback_rfready(RAIL_Handle_t rail)
 
 static volatile int rx_buffer_valid;
 static uint8_t rx_buffer[MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
+static uint8_t rx_buffer_copy[MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
 
 static void process_packet(RAIL_Handle_t rail)
 {
@@ -248,13 +250,25 @@ RAILCb_IEEE802154_DataRequestCommand(
 
 #endif
 
-static mp_obj_t radio_rxbytes_get(void) // mp_obj_t arg)
+/*
+ * Copy the rx buffer into the passed in argument.
+ */
+static mp_obj_t radio_rxbytes_get(void)
 {
 	if (!rx_buffer_valid)
 		return mp_const_none;
 	rx_buffer_valid = 0;
 
-	return mp_obj_new_bytearray(rx_buffer[0], rx_buffer+1);
+	static mp_obj_t rx_buffer_bytearray;
+	if (!rx_buffer_bytearray)
+		rx_buffer_bytearray = mp_obj_new_bytearray_by_ref(sizeof(rx_buffer_copy), rx_buffer_copy);
+
+	// resize the buffer for the return code and copy into it
+	mp_obj_array_t * buf = MP_OBJ_TO_PTR(rx_buffer_bytearray);
+	buf->len = rx_buffer[0];
+	memcpy(rx_buffer_copy, rx_buffer+1, buf->len);
+
+	return rx_buffer_bytearray;
 }
 
 MP_DEFINE_CONST_FUN_OBJ_0(radio_rxbytes_obj, radio_rxbytes_get);

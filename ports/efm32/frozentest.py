@@ -273,6 +273,7 @@ class ieee802154:
 		src_mode = (self.fcf >> 14) & 0x3
 		self.src = 0
 		self.dst = 0
+		self.dst_pan = 0
 		self.src_pan = 0
 		self.mic = None
 

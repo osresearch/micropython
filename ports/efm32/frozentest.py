@@ -265,44 +265,69 @@ class ieee802154:
 
 	# parse an incoming 802.15.4 message
 	def parse(self,b):
-		self.hdr = b.u16()
+		self.fcf = b.u16()
 		self.seq = b.u8()
-		self.frame_type = (self.hdr >> 0) & 0x7
+		self.frame_type = (self.fcf >> 0) & 0x7
 
-		dst_mode = (self.hdr >> 10) & 0x3
-		src_mode = (self.hdr >> 14) & 0x3
+		dst_mode = (self.fcf >> 10) & 0x3
+		src_mode = (self.fcf >> 14) & 0x3
 		self.src = 0
 		self.dst = 0
 		self.src_pan = 0
-		self.dst_pan = 0
+		self.mic = None
 
 		if dst_mode == 2:
 			# short destination addresses
 			self.dst_pan = b.u16()
 			self.dst = b.u16()
-		else:
-			# need to handle long addresses
-			pass
+		elif dst_mode == 3:
+			# long addresses
+			self.dst_pan = b.u16()
+			self.dst_addr = b.data(8)
 
 		if src_mode == 2:
 			# short source addressing
-			if ((self.hdr >> 6) & 1):
+			if (self.fcf >> 6) & 1:
 				# pan compression, use the dst_pan
 				self.src_pan = self.dst_pan
 			else:
 				# pan is in the message
 				self.src_pan = b.u16()
-
 			self.src = b.u16()
+		elif src_mode == 3:
+			if (self.fcf >> 6) & 1:
+				# pan compression, use the dst_pan
+				self.src_pan = self.dst_pan
+			else:
+				# pan is in the message
+				self.src_pan = b.u16()
+			self.src_addr = b.data(8)
 
-		# last two bytes are something weird
-		#self.payload = b[offset:-2]
-
-		# it isn't the fcs, not sure what it is
-		#self.fcs = b[-2] << 8 | b[-1]
-
-		if b.remaining() > 8:
+		if self.frame_type == 0:
+			self.frame_type = "BCN"
+			self.payload = b.data(b.remaining())
+		elif self.frame_type == 1:
+			self.frame_type = "DAT"
 			self.nwk_parse(b)
+		elif self.frame_type == 2:
+			self.frame_type = "ACK"
+			self.payload = b.data(b.remaining())
+		elif self.frame_type == 3:
+			self.frame_type = "CMD"
+			self.cmd_parse(b)
+		else:
+			self.frame_type = "%03b" % (self.frame_type)
+			self.payload = b.data(b.remaining())
+
+	# parse an IEEE802.15.4 command
+	def cmd_parse(self, b):
+		cmd = b.u8()
+		if cmd == 0x04:
+			self.payload = "Data request"
+		elif cmd == 0x07:
+			self.payload = "Beacon request"
+		else:
+			self.payload = "Command %02x" % (cmd)
 
 	# parse the ZigBee network layer
 	def nwk_parse(self, b):
@@ -313,11 +338,22 @@ class ieee802154:
 		radius = b.u8()
 		seq = b.u8()
 
-		if fcf & 0x1000:
+		frame_type = (fcf >> 0) & 3
+		if frame_type == 0x0:
+			self.frame_type = "ZDAT"
+		elif frame_type == 0x1:
+			self.frame_type = "ZCMD"
+		elif frame_type == 0x2:
+			self.frame_type = "ZRSV"
+		elif frame_type == 0x3:
+			self.frame_type = "ZPAN"
+
+		if (fcf >> 11) & 1:
+			# extended dest is present
+			self.dst_addr = b.data(8)
+		if (fcf >> 12) & 1:
 			# extended source is present
 			self.src_addr = b.data(8)
-		else:
-			self.src_addr = None
 
 		if fcf & 0x0200:
 			# security header is present, attempt to decrypt
@@ -326,7 +362,6 @@ class ieee802154:
 		else:
 			# the rest of the packet is the payload
 			self.payload = b.data(b.remaining())
-			self.mic = 1
 
 	# security header is present; auth_start points to the start
 	# of the network header so that the entire MIC can be computed
@@ -366,9 +401,9 @@ class ieee802154:
 		# offset to the start of the header before processing it,
 		# which allows us to extract all that data now.
 		l_a = b.offset() - auth_start
-		print("auth=", auth_start, "b=", b._data)
+		#print("auth=", auth_start, "b=", b._data)
 		auth = b._data[auth_start:auth_start + l_a]
-		print("l_a=",l_a, auth)
+		#print("l_a=",l_a, auth)
 
 		# Length of the message is everything that is left,
 		# except the four bytes for the message integrity code
@@ -377,7 +412,7 @@ class ieee802154:
 		C = b.data(l_m) # cipher text of length l_m
 		M = b.data(l_M) # message integrity code of length l_M
 
-		print("l_c=", l_m, C)
+		#print("l_c=", l_m, C)
 
 		# pad the cipher text to 16 bit block
 		while len(C) % 16 != 0:
@@ -404,7 +439,7 @@ class ieee802154:
 		# remove any padding from the decrypted message
 		# and store the clear text payload
 		m = C[0:l_m];
-		print("l_m=", l_m, m)
+		#print("l_m=", l_m, m)
 
 		# check the message integrity code with the messy CCM*
 		# algorithm
@@ -447,20 +482,20 @@ class ieee802154:
 			block = aes.encrypt(block)
 
 		if block[0:l_M] == M:
-			print("Good MAC:", M)
+			#print("Good MAC:", M)
 			self.payload = m
 			self.mic = 1
 		else:
-			print("Bad MAC:",block[0:l_M], "expected", M)
+			print("Bad MAC:",block[0:l_M], b._data)
 			self.payload = C
 			self.mic = 0
 
 
 	def show(self):
-		print("hdr=%04x seq=%02x" % (self.hdr, self.seq),
+		print(self.frame_type,
+			"fcf=%04x seq=%02x" % (self.fcf, self.seq),
 			"dst=%04x/%04x src=%04x/%04x" %
 			   (self.dst, self.dst_pan, self.src, self.src_pan),
-			"mic="+hex(self.mic),
 			self.payload
 		)
 
@@ -472,8 +507,12 @@ def loop():
 		if b is None:
 			continue
 		data.init(b[:-2]) # discard the weird bytes
-		parser.parse(data)
-		parser.show()
+		try:
+			parser.parse(data)
+			parser.show()
+		except:
+			print(b[:-2])
+			raise
 
 def sniff():
 	while True:

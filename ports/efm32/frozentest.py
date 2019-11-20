@@ -224,48 +224,50 @@ aes = AES(nwk_key)
 
 class packet:
 	def __init__(self):
-		self.offset = 0
-		self.data = None
+		self._offset = 0
+		self._data = None
 	def init(self, data):
-		self.offset = 0
-		self.data = data
+		self._offset = 0
+		self._data = data
+	def len(self):
+		return len(self._data)
+	def offset(self):
+		return self._offset
+	def remaining(self):
+		return self.len() - self.offset()
 	def u8(self):
-		x = self.data[self.offset]
-		self.offset += 1
+		x = self._data[self._offset]
+		self._offset += 1
 		return x
 	def u16(self):
 		x = 0 \
-		  | self.data[self.offset+1] << 8 \
-                  | self.data[self.offset+0] << 0
-		self.offset += 2
+		  | self._data[self._offset+1] << 8 \
+                  | self._data[self._offset+0] << 0
+		self._offset += 2
 		return x
 	def u32(self):
 		x = 0 \
-		  | self.data[self.offset+3] << 24 \
-		  | self.data[self.offset+2] << 16 \
-		  | self.data[self.offset+1] << 8 \
-                  | self.data[self.offset+0] << 0
-		self.offset += 2
+		  | self._data[self._offset+3] << 24 \
+		  | self._data[self._offset+2] << 16 \
+		  | self._data[self._offset+1] << 8 \
+                  | self._data[self._offset+0] << 0
+		self._offset += 4
 		return x
 	def data(self, len):
-		x = self.data[self.offset:self.offset+len]
-		self.offset += len
+		x = self._data[self._offset:self._offset+len]
+		self._offset += len
 		return x
 
 
 class ieee802154:
 	def __init__(self):
-		self.hdr = 0
-		self.packet = packet()
 		pass
 
 	# parse an incoming 802.15.4 message
 	def parse(self,b):
-		self.packet.init(b)
-		self.hdr = b[1] << 8 | b[0]
-		self.seq = b[2]
+		self.hdr = b.u16()
+		self.seq = b.u8()
 		self.frame_type = (self.hdr >> 0) & 0x7
-		self.len = len(b)
 
 		dst_mode = (self.hdr >> 10) & 0x3
 		src_mode = (self.hdr >> 14) & 0x3
@@ -274,13 +276,10 @@ class ieee802154:
 		self.src_pan = 0
 		self.dst_pan = 0
 
-		offset = 3;
-
 		if dst_mode == 2:
 			# short destination addresses
-			self.dst_pan = b[offset+1] << 8 | b[offset+0]
-			self.dst = b[offset+3] << 8 | b[offset+2]
-			offset += 4;
+			self.dst_pan = b.u16()
+			self.dst = b.u16()
 		else:
 			# need to handle long addresses
 			pass
@@ -292,176 +291,189 @@ class ieee802154:
 				self.src_pan = self.dst_pan
 			else:
 				# pan is in the message
-				self.src_pan = b[offset+1] << 8 | b[offset+0]
-				offset += 2
+				self.src_pan = b.u16()
 
-			self.src = b[offset+1] << 8 | b[offset+0]
-			offset += 2
+			self.src = b.u16()
 
 		# last two bytes are something weird
-		self.payload = b[offset:-2]
+		#self.payload = b[offset:-2]
 
 		# it isn't the fcs, not sure what it is
 		#self.fcs = b[-2] << 8 | b[-1]
 
-		if len(self.payload) > 8:
-			self.nwk_parse(self.payload)
+		if b.remaining() > 8:
+			self.nwk_parse(b)
 
 	# parse the ZigBee network layer
-	def nwk_parse(self, data):
-		off = 0
-		print("nwk ", len(data))
-		fcf = data[off+1] << 8 | data[off+0] ; off += 2
-		dst = data[off+1] << 8 | data[off+0] ; off += 2
-		src = data[off+1] << 8 | data[off+0] ; off += 2
-		radius = data[off] ; off += 1
-		seq = data[off] ; off += 1
+	def nwk_parse(self, b):
+		auth_start = b.offset()
+		fcf = b.u16()
+		dst = b.u16()
+		src = b.u16()
+		radius = b.u8()
+		seq = b.u8()
 
 		if fcf & 0x1000:
 			# extended source is present
-			off += 8
-
-		if (fcf & 0x0200) == 0:
-			# security header is not present, cleartext
-			pass
+			self.src_addr = b.data(8)
 		else:
-			# security header is present
-			# the security control field is not filled in correctly in the header,
-			# so it is necessary to patch it up to contain ZBEE_SEC_ENC_MIC32
-			# == 5. Not sure why, but wireshark does it.
-			print("security header", data)
-			data[off] = (data[off] & ~0x07) | 0x05
-			sec_hdr = data[off] ; off += 1
-			sec_counter = data[off:off+4] ; off += 4
-			# 8 byte ieee address, used in the extended nonce
-			if sec_hdr & 0x20: # extended nonce bit
-				src_addr = data[off:off+8]
-				off += 8
-			else:
-				print("no src addr?")
-				src_addr = bytearray(8)
+			self.src_addr = None
 
-			# The key seq tells us which key is used;
-			# should always be zero?
-			key_seq = data[off]; off += 1
+		if fcf & 0x0200:
+			# security header is present, attempt to decrypt
+			# the message and
+			self.ccm_decrypt(b, auth_start)
+		else:
+			# the rest of the packet is the payload
+			self.payload = b.data(b.remaining())
+			self.mic = 1
 
-			# section 4.20 says extended nonce is
-			# 8 bytes of IEEE address, little endian
-			# 4 bytes of counter, little endian
-			# 1 byte of patched security control field
-			nonce = bytearray(16)
-			nonce[0] = 0x01
-			nonce[1:9] = src_addr
-			nonce[9:13] = sec_counter
-			nonce[13] = sec_hdr
-			nonce[14] = 0x00
-			nonce[15] = 0x00
+	# security header is present; auth_start points to the start
+	# of the network header so that the entire MIC can be computed
+	def ccm_decrypt(self, b, auth_start):
+		# the security control field is not filled in correctly in the header,
+		# so it is necessary to patch it up to contain ZBEE_SEC_ENC_MIC32
+		# == 5. Not sure why, but wireshark does it.
+		b._data[b.offset()] \
+		  = (b._data[b.offset()] & ~0x07) | 0x05
+		sec_hdr = b.u8()
+		sec_counter = b.data(4)
+		# 8 byte ieee address, used in the extended nonce
+		if sec_hdr & 0x20: # extended nonce bit
+			self.src_addr = b.data(8)
+		else:
+			# hopefully the one in the header was present
+			pass
 
-			# authenticated data is everything up to the message
-			# which includes the network header
-			l_a = off
-			auth = data[0:l_a]
-			print("l_a=",l_a, auth)
+		# The key seq tells us which key is used;
+		# should always be zero?
+		key_seq = b.u8()
 
-			# Length of the message is everything that is left,
-			# except the four bytes for the message auth code
-			l_M = 4
-			l_m = len(data) - off - l_M
-			C = data[off:off+l_m]
-			off += l_m
-			M = data[off:off+l_M]
-			off += l_M
+		# section 4.20 says extended nonce is
+		# 8 bytes of IEEE address, little endian
+		# 4 bytes of counter, little endian
+		# 1 byte of patched security control field
+		nonce = bytearray(16)
+		nonce[0] = 0x01
+		nonce[1:9] = self.src_addr
+		nonce[9:13] = sec_counter
+		nonce[13] = sec_hdr
+		nonce[14] = 0x00
+		nonce[15] = 0x00
 
-			print("l_c=", l_m, C)
+		# authenticated data is everything up to the message
+		# which includes the network header.  we stored the
+		# offset to the start of the header before processing it,
+		# which allows us to extract all that data now.
+		l_a = b.offset() - auth_start
+		print("auth=", auth_start, "b=", b._data)
+		auth = b._data[auth_start:auth_start + l_a]
+		print("l_a=",l_a, auth)
 
-			# pad the cipher text to 16 bit block
-			while len(C) % 16 != 0:
-				C.append(0)
+		# Length of the message is everything that is left,
+		# except the four bytes for the message integrity code
+		l_M = 4
+		l_m = b.len() - (auth_start + l_a) - l_M
+		C = b.data(l_m) # cipher text of length l_m
+		M = b.data(l_M) # message integrity code of length l_M
 
-			# decrypt the MIC block in place
+		print("l_c=", l_m, C)
+
+		# pad the cipher text to 16 bit block
+		while len(C) % 16 != 0:
+			C.append(0)
+
+		# decrypt the MIC block in place
+		xor = aes.encrypt(nonce)
+		for j in range(l_M):
+			M[j] ^= xor[j]
+
+		# decrypt each 16-byte block in counter mode
+		for i in range(0, l_m, 16):
+			block_len = l_m - i
+			if block_len > 16:
+				block_len = 16
+
+			# increment the counter word,
+			# should be two bytes, but never more than 256
+			nonce[15] += 1
 			xor = aes.encrypt(nonce)
-			for j in range(0,l_M):
-				M[j] ^= xor[j]
+			for j in range(block_len):
+				C[i+j] ^= xor[j]
 
-			# decrypt each 16-byte block in counter mode
-			for i in range(0,l_m, 16):
-				block_len = l_m - i
-				if block_len > 16:
-					block_len = 16
+		# remove any padding from the decrypted message
+		# and store the clear text payload
+		m = C[0:l_m];
+		print("l_m=", l_m, m)
 
-				# increment the counter word,
-				# should be two bytes, but never more than 256
-				nonce[15] += 1
-				xor = aes.encrypt(nonce)
-				for j in range(0,block_len):
-					C[i+j] ^= xor[j]
+		# check the message integrity code with the messy CCM*
+		# algorithm
 
-			# remove any padding from the decrypted message
-			m = C[0:l_m];
-			print("l_m=", l_m, m)
+		# Generate the first cipher block B0
+		block = bytearray(16)
+		block[0] |= 1 << 3 # int((4 - 2)/2) << 3
+		if l_a != 0:
+			block[0] |= 0x40
+		block[0] |= 1
+		block[1:14] = nonce[1:14] # src addr and counter
+		block[14] = (l_m >> 8) & 0xFF
+		block[15] = (l_m >> 0) & 0xFF
+		block = aes.encrypt(block)
 
-			# m is now in clear text; check the message auth
+		# process the auth length and auth data blocks
+		j = 0
+		if l_a > 0:
+			block[0] ^= (l_a >> 8) & 0xFF
+			block[1] ^= (l_a >> 0) & 0xFF
+			j = 2
+			for i in range(l_a):
+				if (j == 16):
+					block = aes.encrypt(block)
+					j = 0
+				block[j] ^= auth[i]
+				j += 1
+			# pad out the rest of this block with 0
+			j = 16
 
-			# Generate the first cipher block B0
-			block = bytearray(16)
-			block[0] |= 1 << 3 # int((4 - 2)/2) << 3
-			if l_a != 0:
-				block[0] |= 0x40
-			block[0] |= 1
-			block[1:14] = nonce[1:14] # src addr and counter
-			block[14] = (l_m >> 8) & 0xFF
-			block[15] = (l_m >> 0) & 0xFF
+		# process the clear text message blocks
+		if l_m > 0:
+			for i in range(l_m):
+				if (j == 16):
+					block = aes.encrypt(block)
+					j = 0
+				block[j] ^= m[i]
+				j += 1
+		if j != 0:
 			block = aes.encrypt(block)
 
-			# process the auth length and auth data blocks
-			j = 0
-			if l_a > 0:
-				block[0] ^= (l_a >> 8) & 0xFF
-				block[1] ^= (l_a >> 0) & 0xFF
-				j = 2
-				for i in range(0,l_a):
-					if (j == 16):
-						block = aes.encrypt(block)
-						j = 0
-					block[j] ^= auth[i]
-					j += 1
-				# pad out the rest of this block with 0
-				j = 16
-
-			# process the clear text message blocks
-			if l_m > 0:
-				for i in range(0,l_m):
-					if (j == 16):
-						block = aes.encrypt(block)
-						j = 0
-					block[j] ^= m[i]
-					j += 1
-			if j != 0:
-				block = aes.encrypt(block)
-
-			if block[0:l_M] == M:
-				print("Good MAC:", M)
-			else:
-				print("Bad MAC:",block[0:l_M], "expected", M)
-
+		if block[0:l_M] == M:
+			print("Good MAC:", M)
 			self.payload = m
+			self.mic = 1
+		else:
+			print("Bad MAC:",block[0:l_M], "expected", M)
+			self.payload = C
+			self.mic = 0
 
-	def print(self):
-		print(
-			"hdr="+hex(self.hdr),
-			"seq="+hex(self.seq),
-			"dst="+hex(self.dst)+"/"+hex(self.dst_pan), 
-			"src="+hex(self.src)+"/"+hex(self.src_pan), 
+
+	def show(self):
+		print("hdr=%04x seq=%02x" % (self.hdr, self.seq),
+			"dst=%04x/%04x src=%04x/%04x" %
+			   (self.dst, self.dst_pan, self.src, self.src_pan),
+			"mic="+hex(self.mic),
 			self.payload
 		)
 
 def loop():
 	parser = ieee802154()
+	data = packet()
 	while True:
-		bytes = radio.get()
-		if bytes is not None:
-			parser.parse(bytes)
-			parser.print()
+		b = radio.get()
+		if b is None:
+			continue
+		data.init(b[:-2]) # discard the weird bytes
+		parser.parse(data)
+		parser.show()
 
 def sniff():
 	while True:
@@ -469,5 +481,5 @@ def sniff():
 		if bytes is None:
 			continue
 		for c in bytes:
-			print("%02x" % c, end='')
+			print("%02x" % (c), end='')
 		print()

@@ -71,21 +71,28 @@ SRC_C = \
 	lib/utils/pyexec.c \
 	lib/libc/string0.c \
 	lib/mp-readline/readline.c \
+	lib/utils/sys_stdio_mphal.c \
+	lib/utils/interrupt_char.c \
+
+# Scan all of the source files for QSTR
+SRC_QSTR += $(SRC_C)
+
+# EMLIB from Silicon Labs for the Gecko boards
+# These are not included in the QSTR scan
+LIB_C += \
+	system_efr32mg1p.c \
+	startup_efr32mg1p.c \
 	../emlib/src/em_usart.c \
 	../emlib/src/em_cmu.c \
 	../emlib/src/em_gpio.c \
 	../emlib/src/em_system.c \
-	$(BUILD)/_frozen_mpy.c \
-	system_efr32mg1p.c \
-	startup_efr32mg1p.c \
-
-# If we're using RAIL for the radio, more modules are needed
-SRC_C += \
 	../emlib/src/em_core.c \
 	../emlib/src/em_emu.c \
 
 OBJ = $(PY_CORE_O) \
 	$(addprefix $(BUILD)/, $(SRC_C:.c=.o)) \
+	$(addprefix $(BUILD)/, $(LIB_C:.c=.o)) \
+	$(BUILD)/frozen_mpy.o \
 
 ifeq ($(CROSS), 1)
 all: $(BUILD)/firmware.dfu
@@ -93,16 +100,11 @@ else
 all: $(BUILD)/firmware.elf
 endif
 
-$(BUILD)/_frozen_mpy.c: frozentest.mpy $(BUILD)/genhdr/qstrdefs.generated.h
-	$(ECHO) "MISC freezing bytecode"
-	$(Q)$(TOP)/tools/mpy-tool.py -f -q $(BUILD)/genhdr/qstrdefs.preprocessed.h -mlongint-impl=none $< > $@
-
-%.mpy: %.py
-	@$(ECHO) "GEN $@"
-	$(Q)$(MPY_CROSS) -o $@ $<
-
-
-#FROZEN_MANIFEST += frozentest.py
+# Override the default args to mpy-tool so that the frozen modules
+# will have the correct configuration. All the .py files in modules/
+# are linked into the firmware.
+MPY_TOOL = $(PYTHON) $(TOP)/tools/mpy-tool.py -mlongint-impl=none
+FROZEN_MPY_DIR = modules
 
 $(BUILD)/firmware.elf: $(OBJ)
 	$(ECHO) "LINK $@"

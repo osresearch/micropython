@@ -167,7 +167,7 @@ radio_init();
         }
     }
     #else
-    pyexec_frozen_module("frozentest.py");
+    pyexec_frozen_module("__init__.py");
     pyexec_friendly_repl();
     #endif
     //do_str("print('hello world!', list(x+1 for x in range(10)), end='eol\\n')", MP_PARSE_SINGLE_INPUT);

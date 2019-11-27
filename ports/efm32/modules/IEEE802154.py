@@ -1,5 +1,7 @@
 # Process IEEE 802.15.4 packets and return an unpacked form of them
 # The Zigbee specific stuff should be split out into a separate file
+import CCM
+
 class IEEE802154:
 	def __init__(self, aes):
 		self.aes = aes
@@ -155,84 +157,14 @@ class IEEE802154:
 		C = b.data(l_m) # cipher text of length l_m
 		M = b.data(l_M) # message integrity code of length l_M
 
-		#print("l_c=", l_m, C)
-
-		# pad the cipher text to 16 bit block
-		while len(C) % 16 != 0:
-			C.append(0)
-
-		# decrypt the MIC block in place
-		xor = self.aes.encrypt(nonce)
-		for j in range(l_M):
-			M[j] ^= xor[j]
-
-		# decrypt each 16-byte block in counter mode
-		for i in range(0, l_m, 16):
-			block_len = l_m - i
-			if block_len > 16:
-				block_len = 16
-
-			# increment the counter word,
-			# should be two bytes, but never more than 256
-			nonce[15] += 1
-			xor = self.aes.encrypt(nonce)
-			for j in range(block_len):
-				C[i+j] ^= xor[j]
-
-		# remove any padding from the decrypted message
-		# and store the clear text payload
-		m = C[0:l_m];
-		#print("l_m=", l_m, m)
-
-		# check the message integrity code with the messy CCM*
-		# algorithm
-
-		# Generate the first cipher block B0
-		block = bytearray(16)
-		block[0] |= 1 << 3 # int((4 - 2)/2) << 3
-		if l_a != 0:
-			block[0] |= 0x40
-		block[0] |= 1
-		block[1:14] = nonce[1:14] # src addr and counter
-		block[14] = (l_m >> 8) & 0xFF
-		block[15] = (l_m >> 0) & 0xFF
-		block = self.aes.encrypt(block)
-
-		# process the auth length and auth data blocks
-		j = 0
-		if l_a > 0:
-			block[0] ^= (l_a >> 8) & 0xFF
-			block[1] ^= (l_a >> 0) & 0xFF
-			j = 2
-			for i in range(l_a):
-				if (j == 16):
-					block = self.aes.encrypt(block)
-					j = 0
-				block[j] ^= auth[i]
-				j += 1
-			# pad out the rest of this block with 0
-			j = 16
-
-		# process the clear text message blocks
-		if l_m > 0:
-			for i in range(l_m):
-				if (j == 16):
-					block = self.aes.encrypt(block)
-					j = 0
-				block[j] ^= m[i]
-				j += 1
-		if j != 0:
-			block = self.aes.encrypt(block)
-
-		if block[0:l_M] == M:
-			#print("Good MAC:", M)
-			self.payload = m
-			self.mic = 1
-		else:
-			print("Bad MAC:",block[0:l_M], b._data)
-			self.payload = C
+		if not CCM.decrypt(auth, C, M, nonce, self.aes):
+			print("BAD DECRYPT: ", b._data )
+			print("message=", C)
+			self.payload = b''
 			self.mic = 0
-
+		else:
+			self.payload = C
+			self.mic = 1
 
 	def show(self):
 		print(self.frame_type,

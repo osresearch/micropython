@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include "py/mpconfig.h"
+#include "py/stream.h"
 
 /*
  * Core UART functions to implement for a port
@@ -32,6 +33,14 @@ int mp_hal_stdin_rx_chr(void) {
     c = USART_Rx(USART);
 #endif
     return c;
+}
+
+uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags)
+{
+    if ((poll_flags & MP_STREAM_POLL_RD)
+    &&  (USART->STATUS & USART_STATUS_RXDATAV))
+        return MP_STREAM_POLL_RD;
+    return 0;
 }
 
 // Send string of given length

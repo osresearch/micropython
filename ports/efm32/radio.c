@@ -270,11 +270,55 @@ RAILCb_IEEE802154_DataRequestCommand(
 
 #endif
 
+static mp_obj_t radio_init(void)
+{
+	// do not re-init
+	if (radio_state != RADIO_UNINIT)
+		return mp_const_none;
+
+	printf("%s: mac %08x:%08x\n", __func__, (unsigned int) DEVINFO->UNIQUEH, (unsigned int) DEVINFO->UNIQUEL);
+
+	rail = RAIL_Init(&rail_config, rail_callback_rfready);
+	RAIL_ConfigData(rail, &rail_data_config);
+	RAIL_ConfigCal(rail, RAIL_CAL_ALL);
+	RAIL_IEEE802154_Config2p4GHzRadio(rail);
+	RAIL_IEEE802154_Init(rail, &ieee802154_config);
+	RAIL_ConfigEvents(rail, RAIL_EVENTS_ALL, 0
+		| RAIL_EVENT_RSSI_AVERAGE_DONE
+		| RAIL_EVENT_RX_ACK_TIMEOUT
+		| RAIL_EVENT_RX_PACKET_RECEIVED
+		| RAIL_EVENT_IEEE802154_DATA_REQUEST_COMMAND
+		| RAIL_EVENT_TX_PACKET_SENT
+		| RAIL_EVENT_CAL_NEEDED
+	);
+
+	RAIL_ConfigTxPower(rail, &paInit2p4);
+	RAIL_SetTxPower(rail, 255); // max
+
+	// use the device unique id as the mac for network index 0
+	memcpy(&MAC_address[0], (const void*)&DEVINFO->UNIQUEH, 4);
+	memcpy(&MAC_address[4], (const void*)&DEVINFO->UNIQUEL, 4);
+	RAIL_IEEE802154_SetLongAddress(rail, MAC_address, 0);
+
+	// start the radio
+	RAIL_Idle(rail, RAIL_IDLE_FORCE_SHUTDOWN_CLEAR_FLAGS, true);
+	radio_state = RADIO_RX;
+	RAIL_StartRx(rail, channel, NULL);
+
+	return mp_const_none;
+}
+
+MP_DEFINE_CONST_FUN_OBJ_0(radio_init_obj, radio_init);
+
+
 /*
  * Copy the rx buffer into the passed in argument.
  */
 static mp_obj_t radio_rxbytes_get(void)
 {
+	if (radio_state == RADIO_UNINIT)
+		radio_init();
+
 	if (!rx_buffer_valid)
 		return mp_const_none;
 
@@ -300,6 +344,9 @@ MP_DEFINE_CONST_FUN_OBJ_0(radio_rxbytes_obj, radio_rxbytes_get);
  */
 static mp_obj_t radio_txbytes(mp_obj_t buf_obj)
 {
+	if (radio_state == RADIO_UNINIT)
+		radio_init();
+
 	if (tx_pending)
 		mp_raise_ValueError("tx pending");
 
@@ -339,45 +386,11 @@ static mp_obj_t radio_txbytes(mp_obj_t buf_obj)
 MP_DEFINE_CONST_FUN_OBJ_1(radio_txbytes_obj, radio_txbytes);
 
 
-static mp_obj_t radio_init(void)
-{
-	printf("%s: mac %08x:%08x\n", __func__, (unsigned int) DEVINFO->UNIQUEH, (unsigned int) DEVINFO->UNIQUEL);
-
-	rail = RAIL_Init(&rail_config, rail_callback_rfready);
-	RAIL_ConfigData(rail, &rail_data_config);
-	RAIL_ConfigCal(rail, RAIL_CAL_ALL);
-	RAIL_IEEE802154_Config2p4GHzRadio(rail);
-	RAIL_IEEE802154_Init(rail, &ieee802154_config);
-	RAIL_ConfigEvents(rail, RAIL_EVENTS_ALL, 0
-		| RAIL_EVENT_RSSI_AVERAGE_DONE
-		| RAIL_EVENT_RX_ACK_TIMEOUT
-		| RAIL_EVENT_RX_PACKET_RECEIVED
-		| RAIL_EVENT_IEEE802154_DATA_REQUEST_COMMAND
-		| RAIL_EVENT_TX_PACKET_SENT
-		| RAIL_EVENT_CAL_NEEDED
-	);
-
-	RAIL_ConfigTxPower(rail, &paInit2p4);
-	RAIL_SetTxPower(rail, 255); // max
-
-	// use the device unique id as the mac for network index 0
-	memcpy(&MAC_address[0], (const void*)&DEVINFO->UNIQUEH, 4);
-	memcpy(&MAC_address[4], (const void*)&DEVINFO->UNIQUEL, 4);
-	RAIL_IEEE802154_SetLongAddress(rail, MAC_address, 0);
-
-	// start the radio
-	RAIL_Idle(rail, RAIL_IDLE_FORCE_SHUTDOWN_CLEAR_FLAGS, true);
-	radio_state = RADIO_RX;
-	RAIL_StartRx(rail, channel, NULL);
-
-	return mp_const_none;
-}
-
-MP_DEFINE_CONST_FUN_OBJ_0(radio_init_obj, radio_init);
-
-
 static mp_obj_t radio_mac(void)
 {
+	if (radio_state == RADIO_UNINIT)
+		radio_init();
+
 	static mp_obj_t mac_bytes;
 	if (!mac_bytes)
 		mac_bytes = mp_obj_new_bytes(MAC_address, sizeof(MAC_address));
@@ -389,6 +402,9 @@ MP_DEFINE_CONST_FUN_OBJ_0(radio_mac_obj, radio_mac);
 
 static mp_obj_t radio_promiscuous(mp_obj_t value_obj)
 {
+	if (radio_state == RADIO_UNINIT)
+		radio_init();
+
 	int status = mp_obj_int_get_checked(value_obj);
 
 	printf("radio: %s promiscuous mode\n", status ? "enabling" : "disabling");
@@ -402,6 +418,9 @@ MP_DEFINE_CONST_FUN_OBJ_1(radio_promiscuous_obj, radio_promiscuous);
 
 static mp_obj_t radio_address(mp_obj_t short_addr_obj, mp_obj_t pan_id_obj)
 {
+	if (radio_state == RADIO_UNINIT)
+		radio_init();
+
  	unsigned short_addr = mp_obj_int_get_checked(short_addr_obj);
  	unsigned pan_id = mp_obj_int_get_checked(pan_id_obj);
 

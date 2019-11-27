@@ -1,12 +1,15 @@
 ![EFR32 pinout showing SWD, RX/TX, and LED pins](efr32-pinout.jpg)
 
-# The minimal port for the Silcon Labs EFM32 
+# The Micropython port for the Silcon Labs EFM32
 
-This port is intended to be a minimal MicroPython port that actually runs
-on the Ikea Tradfri lighting hardware or other Silican Labs EFM32 boards.
-The one used for most of the testing is the LED 10W dimmer shown above, which
-has the Gecko board as a module inside the case as well as easy to access SWD
-pins for reprogramming.  The console pins require soldering extra jumpers.
+This port of Micropython runs in the Gecko boards used in the Ikea
+Tradfri lighting hardware and should be portable to other Silican Labs
+EFM32 boards.
+
+The one used for most of the testing is the LED 10W dimmer shown above,
+which has the Gecko board as a module inside the case as well as easy to
+access SWD pins for reprogramming.  The console pins require soldering
+extra jumpers.
 
 # EFM32 features
 
@@ -17,16 +20,17 @@ for storing OTA images or other things.
 * [Gecko SDK](https://github.com/SiliconLabs/Gecko_SDK)
 * [SDK documentation](https://siliconlabs.github.io/Gecko_SDK_Doc/)
 
-
+## Supported features
 * It boots!
-* It writes to the serial port!
-* It receives packets from the radio!
-* 802.15.4 packets are received
+* The REPL reads and writes to the serial port
+* The radio module can send and receive 802.15.4 packets
 * Frozen modules work -- add files into the `modules` directory to bundle them into the image
 * ZigBee messages are parsed in Python [`modules/IEEE802154.py`](modules/IEEE802154.py)
 * GPIO (partially; need to adapt the real MicroPython pins)
 
 ## Not yet supported
+* Interrupting the REPL
+* Over the air updates to the frozen modules
 * Zigbee OTA
 * Bluetooth LE
 * Thread?

@@ -173,3 +173,102 @@ class IEEE802154:
 			   (self.dst, self.dst_pan, self.src, self.src_pan),
 			self.payload
 		)
+
+
+def serialize(
+	dst,
+	pan,
+	seq,
+	frame_type,
+	payload,
+	src=None,
+	src_pan=None,
+	ack_req=False
+):
+	hdr = bytearray()
+	hdr.append(0) # FCF will be filled in later
+	hdr.append(0)
+	hdr.append(seq)
+
+	fcf = frame_type & 0x7
+	if ack_req:
+		fcf |= 1 << 5 # Ack request
+
+	# Destination address mode
+	hdr.append((pan >> 0) & 0xFF)
+	hdr.append((pan >> 8) & 0xFF)
+	if type(dst) is int:
+		# short addressing, only 16-bits
+		fcf |= 0x2 << 10
+		hdr.append((dst >> 0) & 0xFF)
+		hdr.append((dst >> 8) & 0xFF)
+	elif dst is not None:
+		# long address, should be 8 bytes
+		if len(dst) != 8:
+			throw("dst address must be 8 bytes")
+		fcf |= 0x3 << 10
+		hdr.extend(dst)
+	else:
+		# no dst information? this isn't valid?
+		pass
+
+	# Source address mode; can be ommitted entirely
+	if src is not None:
+		if src_pan is None:
+			fcf |= 1 << 6 # Pan ID compression
+		else:
+			hdr.append((src_pan >> 0) & 0xFF)
+			hdr.append((src_pan >> 8) & 0xFF)
+
+		if type(src) is int:
+			# short address, only 16-bits
+			fcf |= 0x2 << 14
+			hdr.append((src >> 0) & 0xFF)
+			hdr.append((src >> 8) & 0xFF)
+		else:
+			# long address, should be 8 bytes
+			if len(src) != 8:
+				throw("src address must be 8 bytes")
+			fcf |= 0x3 << 14
+			hdr.extend(src)
+
+	# add in the frame control field
+	hdr[0] = (fcf >> 0) & 0xFF
+	hdr[1] = (fcf >> 8) & 0xFF
+
+	hdr.extend(payload)
+
+	return hdr
+
+#from binascii import hexlify
+join_test = serialize(
+	0x0000, # dst short id
+	0x1a62, # dst pan
+	123, # seq
+	0x3, # command
+	b'\x01\x80',  # payload
+	src = b'\x58\xdf\x3e\xfe\xff\x57\xb4\x14',
+	src_pan = 0xFFFF,
+	ack_req = True
+)
+join_golden = bytearray(b'\x23\xc8\x7b\x62\x1a\x00\x00\xff\xff\x58\xdf\x3e\xfe\xff\x57\xb4\x14\x01\x80')
+if join_test != join_golden:
+	print("serial join test failed:")
+	print(join_test)
+	print(join_golden)
+
+
+resp_test = serialize(
+	b'\x58\xdf\x3e\xfe\xff\x57\xb4\x14', # dst
+	0x1a62, # dst_pan
+	195, # seq
+	0x3, # command
+	b'\x02\x3d\x33\x00',
+	src = b'\xb1\x9d\xe8\x0b\x00\x4b\x12\x00',
+	ack_req = True
+)
+resp_golden = bytearray(b'\x63\xcc\xc3\x62\x1a\x58\xdf\x3e\xfe\xff\x57\xb4\x14\xb1\x9d\xe8\x0b\x00\x4b\x12\x00\x02\x3d\x33\x00')
+if resp_test != resp_golden:
+	print("serial resp test failed:")
+	print(resp_test)
+	print(resp_golden)

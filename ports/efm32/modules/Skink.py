@@ -1,7 +1,8 @@
 import Radio
 import AES
 import IEEE802154
-import Zigbee
+from ZigbeeNetwork import ZigbeeNetwork
+from ZigbeeApplication import ZigbeeApplication
 from Packet import Packet
 
 # This is the "well known" zigbee2mqtt key.
@@ -29,10 +30,12 @@ def loop(sniff):
 		try:
 			# discard the weird bytes
 			data = b[:-2]
-			print(data)
+			#print(data)
 			packet = IEEE802154.Packet(data=data)
 			if packet.frame_type == IEEE802154.FRAME_TYPE_DATA:
-				packet.payload = Zigbee.ZigbeeNetwork(data=packet.payload, aes=aes)
+				packet.payload = ZigbeeNetwork(data=packet.payload, aes=aes)
+				packet.payload.payload = ZigbeeApplication(data=packet.payload.payload)
+				
 			print(packet)
 		except:
 			print(b[:-2])

@@ -72,7 +72,7 @@ class ZigbeeNetwork:
 
 		params.append("payload=" + str(self.payload))
 
-		return "Zigbee.ZigbeeNetwork(" + ", ".join(params) + ")"
+		return "ZigbeeNetwork(" + ", ".join(params) + ")"
 
 	def deserialize(self, b):
 		j = 0

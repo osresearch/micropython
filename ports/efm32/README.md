@@ -1,3 +1,5 @@
+![EFR32 pinout showing SWD, RX/TX, and LED pins](efr32-pinout.jpg)
+
 # The minimal port for the Silcon Labs EFM32 
 
 This port is intended to be a minimal MicroPython port that actually runs
@@ -15,23 +17,31 @@ for storing OTA images or other things.
 
 * It boots!
 * It writes to the serial port!
+* It receives packets from the radio!
+* 802.15.4 packets are received
+* Frozen modules work -- add files into the `modules` directory to bundle them into the image
+* ZigBee messages are parsed in Python `modules/IEEE802154.py`
+* GPIO (partially; need to adapt the real MicroPython pins)
 
 ## Not yet supported
-* Zigbee
 * Zigbee OTA
 * Bluetooth LE
 * Thread?
 * External SPI flash
 * Self programming
 * PWM
-* GPIO
 
 # Building for an EFM32 MCU
 
-The `Makefile` is setup to build for the EFR32MG1P cpu and enables a UART
-for communication.  To build:
+For the first build it is necessary to build the `mpy-cross` directory
+so that frozen MicroPython files can be created:
 
-    $ make
+	make -C ../../mpy-cross
+
+The `Makefile` is setup to build for the EFR32MG1P cpu and enables a UART
+for communication.  To build in this directory:
+
+	make
 
 This version of the build should work out-of-the-box on a Ikea 10w LED dimmer (and
 anything similar), and will give you a MicroPython REPL on UART1 at 115200
@@ -41,18 +51,6 @@ The high-current LED driver is on pin PB13.
 
 SWD is on PF1(SWCLK) and PF0(SWD).  Installation is easiest with OpenOCD or
 similar SWD probe.
-
-## Building without the built-in MicroPython compiler
-
-This minimal port can be built with the built-in MicroPython compiler
-disabled.  This will reduce the firmware by about 20k on a Thumb2 machine,
-and by about 40k on 32-bit x86.  Without the compiler the REPL will be
-disabled, but pre-compiled scripts can still be executed.
-
-To test out this feature, change the `MICROPY_ENABLE_COMPILER` config
-option to "0" in the mpconfigport.h file in this directory.  Then
-recompile and run the firmware and it will execute the frozentest.py
-file.
 
 # RAIL
 
@@ -67,6 +65,14 @@ The RAIL library overrides some interrupts, which are marked as `weak` in startu
 * ` RAC_RSM_IRQHandler`
 * ` RAC_SEQ_IRQHandler`
 * ` SYNTH_IRQHandler`
+
+There is a Python interface to the EFM32 radio module in `radio.c` that provides a few methods:
+
+* `Radio.init()`
+* `Radio.promiscuous(bool)`
+* `Radio.rx()` -- returns `ByteArray` of packet or `None` if no packets are waiting
+* `Radio.tx(bytes)` -- transmits a raw packet; the user must fill in all of the headers, although the radio adds the FCS
+* `Radio.address(nwk_addr, pan_id)` -- configures the short address and PAN ID for non-promiscuous reception
 
 
 # Licensing

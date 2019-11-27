@@ -52,6 +52,12 @@ Event Handling
     The optional *trigger* parameter allows you to set a mask of events that
     your program is interested in. The default is all events.
 
+    Note: the ``addr``, ``adv_data`` and ``uuid`` entries in the tuples are
+    references to data managed by the :mod:`ubluetooth` module (i.e. the same
+    instance will be re-used across multiple calls to the event handler). If
+    your program wants to use this data outside of the handler, then it must
+    copy them first, e.g. by using ``bytes(addr)`` or ``bluetooth.UUID(uuid)``.
+
     An event handler showing all possible events::
 
         def bt_irq(event, data):
@@ -203,8 +209,8 @@ writes from a central to a given characteristic, use
     value.
 
     The **flags** are a bitwise-OR combination of the
-    :data:`ubluetooth.FLAGS_READ`, :data:`bluetooth.FLAGS_WRITE` and
-    :data:`ubluetooth.FLAGS_NOTIFY` values defined below.
+    :data:`ubluetooth.FLAG_READ`, :data:`ubluetooth.FLAG_WRITE` and
+    :data:`ubluetooth.FLAG_NOTIFY` values defined below.
 
     The return value is a list (one element per service) of tuples (each element
     is a value handle). Characteristics and descriptor handles are flattened

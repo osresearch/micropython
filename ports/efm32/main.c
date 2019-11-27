@@ -151,8 +151,6 @@ int main(int argc, char **argv)
     extern char mp_hal_stdin_rx_chr(void);
     mp_hal_stdout_init();
 
-extern void radio_init(void);
-radio_init();
     #if MICROPY_ENABLE_GC
     gc_init(heap, heap + sizeof(heap));
     #endif

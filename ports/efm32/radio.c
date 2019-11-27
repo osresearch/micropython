@@ -1,3 +1,6 @@
+/*
+ * Interface to the EFM32 radio module in IEEE 802.15.4 mode
+ */
 #include <stdio.h>
 #include "py/nlr.h"
 #include "py/obj.h"
@@ -53,7 +56,7 @@ static const RAIL_DataConfig_t rail_data_config = {
 
 
 static const RAIL_IEEE802154_Config_t ieee802154_config = {
-	.promiscuousMode	= true,
+	.promiscuousMode	= false,
 	.isPanCoordinator	= false,
 	.framesMask		= RAIL_IEEE802154_ACCEPT_STANDARD_FRAMES,
 	.ackConfig = {
@@ -335,24 +338,8 @@ static mp_obj_t radio_txbytes(mp_obj_t buf_obj)
 
 MP_DEFINE_CONST_FUN_OBJ_1(radio_txbytes_obj, radio_txbytes);
 
-STATIC const mp_map_elem_t radio_globals_table[] = {
-    { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_radio) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_get), (mp_obj_t) &radio_rxbytes_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_set), (mp_obj_t) &radio_txbytes_obj },
-};
 
-STATIC MP_DEFINE_CONST_DICT (
-    mp_module_radio_globals,
-    radio_globals_table
-);
-
-const mp_obj_module_t mp_module_radio = {
-    .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t*)&mp_module_radio_globals,
-};
-
-
-int radio_init(void)
+static mp_obj_t radio_init(void)
 {
 	printf("%s: mac %08x:%08x\n", __func__, (unsigned int) DEVINFO->UNIQUEH, (unsigned int) DEVINFO->UNIQUEL);
 
@@ -383,12 +370,68 @@ int radio_init(void)
 	radio_state = RADIO_RX;
 	RAIL_StartRx(rail, channel, NULL);
 
-/*
-	bool status;
-
-	status = RAIL_IEEE802154_SetPanId(nodeAddress.panId);
-	status = RAIL_IEEE802154_SetShortAddress(nodeAddress.shortAddr);
-*/
-	return 0;
+	return mp_const_none;
 }
 
+MP_DEFINE_CONST_FUN_OBJ_0(radio_init_obj, radio_init);
+
+
+static mp_obj_t radio_mac(void)
+{
+	static mp_obj_t mac_bytes;
+	if (!mac_bytes)
+		mac_bytes = mp_obj_new_bytes(MAC_address, sizeof(MAC_address));
+	return mac_bytes;
+}
+
+MP_DEFINE_CONST_FUN_OBJ_0(radio_mac_obj, radio_mac);
+
+
+static mp_obj_t radio_promiscuous(mp_obj_t value_obj)
+{
+	int status = mp_obj_int_get_checked(value_obj);
+
+	printf("radio: %s promiscuous mode\n", status ? "enabling" : "disabling");
+	RAIL_IEEE802154_SetPromiscuousMode(rail, status);
+
+	return mp_const_none;
+}
+
+MP_DEFINE_CONST_FUN_OBJ_1(radio_promiscuous_obj, radio_promiscuous);
+
+
+static mp_obj_t radio_address(mp_obj_t short_addr_obj, mp_obj_t pan_id_obj)
+{
+ 	unsigned short_addr = mp_obj_int_get_checked(short_addr_obj);
+ 	unsigned pan_id = mp_obj_int_get_checked(pan_id_obj);
+
+	printf("radio: addr %04x/%04x\n", pan_id, short_addr);
+	RAIL_IEEE802154_SetPanId(rail, pan_id, 0);
+	RAIL_IEEE802154_SetShortAddress(rail, short_addr, 0);
+
+	return mp_const_none;
+}
+
+MP_DEFINE_CONST_FUN_OBJ_2(radio_address_obj, radio_address);
+
+STATIC const mp_map_elem_t radio_globals_table[] = {
+    { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_radio) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_init), (mp_obj_t) &radio_init_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_promiscuous), (mp_obj_t) &radio_promiscuous_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_address), (mp_obj_t) &radio_address_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_mac), (mp_obj_t) &radio_mac_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_rx), (mp_obj_t) &radio_rxbytes_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_tx), (mp_obj_t) &radio_txbytes_obj },
+};
+
+STATIC MP_DEFINE_CONST_DICT (
+    mp_module_radio_globals,
+    radio_globals_table
+);
+
+const mp_obj_module_t mp_module_radio = {
+    .base = { &mp_type_module },
+    .globals = (mp_obj_dict_t*)&mp_module_radio_globals,
+};
+
+MP_REGISTER_MODULE(MP_QSTR_Radio, mp_module_radio, 1);

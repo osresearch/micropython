@@ -1,3 +1,4 @@
+import Radio
 from AES import AES
 from IEEE802154 import IEEE802154
 from Packet import Packet
@@ -10,12 +11,16 @@ nwk_key = b"\x01\x03\x05\x07\x09\x0b\x0d\x0f\x00\x02\x04\x06\x08\x0a\x0c\x0d"
 # Only need one AES object in ECB mode since there is no
 # state to track
 
-def loop():
+Radio.init()
+
+def loop(sniff):
+	if sniff:
+		Radio.promiscuous(True)
 	parser = IEEE802154(AES(nwk_key))
 	data = Packet()
 	while True:
 		# the radio is a global from the micropython environment
-		b = radio.get()
+		b = Radio.rx()
 		if b is None:
 			continue
 
@@ -29,8 +34,9 @@ def loop():
 			raise
 
 def sniff():
+	Radio.promiscuous(True)
 	while True:
-		bytes = radio.get();
+		bytes = Radio.rx();
 		if bytes is None:
 			continue
 		for c in bytes:

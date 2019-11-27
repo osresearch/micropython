@@ -4,6 +4,9 @@
 
 This port is intended to be a minimal MicroPython port that actually runs
 on the Ikea Tradfri lighting hardware or other Silican Labs EFM32 boards.
+The one used for most of the testing is the LED 10W dimmer shown above, which
+has the Gecko board as a module inside the case as well as easy to access SWD
+pins for reprogramming.  The console pins require soldering extra jumpers.
 
 # EFM32 features
 
@@ -20,7 +23,7 @@ for storing OTA images or other things.
 * It receives packets from the radio!
 * 802.15.4 packets are received
 * Frozen modules work -- add files into the `modules` directory to bundle them into the image
-* ZigBee messages are parsed in Python `modules/IEEE802154.py`
+* ZigBee messages are parsed in Python [`modules/IEEE802154.py`](modules/IEEE802154.py)
 * GPIO (partially; need to adapt the real MicroPython pins)
 
 ## Not yet supported
@@ -30,6 +33,10 @@ for storing OTA images or other things.
 * External SPI flash
 * Self programming
 * PWM
+
+# No Warranty!
+
+This is very beta and likely voids your Ikea warranty.
 
 # Building for an EFM32 MCU
 
@@ -66,7 +73,7 @@ The RAIL library overrides some interrupts, which are marked as `weak` in startu
 * ` RAC_SEQ_IRQHandler`
 * ` SYNTH_IRQHandler`
 
-There is a Python interface to the EFM32 radio module in `radio.c` that provides a few methods:
+There is a Python interface to the EFM32 radio module in [`radio.c`](radio.c) that provides a few methods:
 
 * `Radio.init()`
 * `Radio.promiscuous(bool)`
@@ -77,7 +84,7 @@ There is a Python interface to the EFM32 radio module in `radio.c` that provides
 
 # Licensing
 
-Micropython is redistributed under a MIT license.  See `../../LICENSE`
+Micropython is redistributed under a MIT license.  See [`../../LICENSE`](../../LICENSE)
 for the contents.
 
 The `emlib` and `gecko_sdk` directories are copyright Silicon Laboratories
@@ -116,4 +123,4 @@ copyright ARM Limited and are redistributed under an unmodified 3-clause BSD lic
      specific prior written permission.
 ```
 
-The RAIL RF modem library has its own license in `rail/Silabs_License_Agreement.txt`
+The RAIL RF modem library has its own license in [`rail/Silabs_License_Agreement.txt`](rail/Silabs_License_Agreement.txt).

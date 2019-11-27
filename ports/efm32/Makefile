@@ -20,6 +20,10 @@ INC += -Iemlib/inc
 INC += -Irail
 LIBS += rail/TARGET_EFR32_1/librail_efr32xg1_release.a
 
+EFM_FAMILY = efr32mg1p
+EFM_DEV = EFR32MG1P132F256GM32
+EFM_DIR = $(EFM_FAMILY)
+
 # does this m4 have hardfloat?
 #LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/libgcc.a
 LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/v7e-m/fpv4-sp/softfp/libgcc.a
@@ -37,11 +41,10 @@ CFLAGS_CORTEX_M4 = \
 	-msoft-float \
 	-fsingle-precision-constant \
 	-Wdouble-promotion \
-	-DEFR32MG1P132F256GM32 \
+	-D$(EFM_DEV) \
 	-falign-functions=2 \
 
-#LINKER_SCRIPT = tradfri-10w.ld
-LINKER_SCRIPT = efr32mg1p.ld
+LINKER_SCRIPT = $(EFM_DIR)/$(EFM_FAMILY).ld
 
 CFLAGS = $(INC) -g -Wall -Werror -std=c99 -nostdlib $(CFLAGS_CORTEX_M4) $(COPT)
 LDFLAGS = -nostdlib -T $(LINKER_SCRIPT) -Map=$@.map --cref --gc-sections
@@ -80,8 +83,8 @@ SRC_QSTR += $(SRC_C)
 # EMLIB from Silicon Labs for the Gecko boards
 # These are not included in the QSTR scan
 LIB_C += \
-	system_efr32mg1p.c \
-	startup_efr32mg1p.c \
+	../$(EFM_DIR)/startup_$(EFM_FAMILY).c \
+	../$(EFM_DIR)/system_$(EFM_FAMILY).c \
 	../emlib/src/em_usart.c \
 	../emlib/src/em_cmu.c \
 	../emlib/src/em_gpio.c \

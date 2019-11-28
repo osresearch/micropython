@@ -6,6 +6,11 @@
 # ZigbeeClusterLibrary (ZCL)
 
 # Zigbee Trust Center key: 5A:69:67:42:65:65:41:6C:6C:69:61:6E:63:65:30:39
+
+# Not properly supported:
+# * Multicast
+# * Route discovery
+# * Source routing
 FRAME_TYPE_DATA = 0
 FRAME_TYPE_CMD = 1
 FRAME_TYPE_RESERVED = 2
@@ -19,6 +24,9 @@ class ZigbeeNetwork:
 	def __init__(self,
 		frame_type = FRAME_TYPE_DATA,
 		version = 2,
+		discover_route = 1,
+		multicast = 0,
+		source_route = 0,
 		src = 0,
 		dst = 0,
 		ext_src = None,
@@ -40,6 +48,9 @@ class ZigbeeNetwork:
 		else:
 			self.frame_type = frame_type
 			self.version = version
+			self.source_route = source_route
+			self.discover_route = discover_route
+			self.multicast = multicast
 			self.src = src
 			self.dst = dst
 			self.ext_src = ext_src
@@ -64,6 +75,13 @@ class ZigbeeNetwork:
 		if self.ext_src is not None:
 			params.append("ext_src=" + str(self.ext_src))
 
+		if self.source_route != 0:
+			params.append("source_route=1")
+		if self.multicast != 0:
+			params.append("multicast=1")
+		if self.discover_route == 0:
+			params.append("discover_route=0")
+
 		if self.security:
 			params.extend([
 				"security=1",
@@ -80,33 +98,37 @@ class ZigbeeNetwork:
 
 		return "ZigbeeNetwork(" + ", ".join(params) + ")"
 
+	# Create an object from bytes on a wire
 	def deserialize(self, b):
 		j = 0
 		fcf = (b[j+1] << 8) | (b[j+0] << 0); j += 2
-		self.frame_type = (fcf >> 0) & 3
-		self.version = (fcf >> 2) & 0xF
-		self.security = (fcf >> 9) & 1
-		dst_mode = (fcf >> 11) & 1
-		src_mode = (fcf >> 12) & 1
+		#print("FCF=%04x" % (fcf))
+		self.frame_type		= (fcf >> 0) & 3
+		self.version		= (fcf >> 2) & 15
+		self.discover_route	= (fcf >> 6) & 3
+		self.multicast		= (fcf >> 8) & 1
+		self.security		= (fcf >> 9) & 1
+		self.source_route	= (fcf >> 10) & 1
+		dst_mode		= (fcf >> 11) & 1
+		src_mode		= (fcf >> 12) & 1
 
 		self.dst = (b[j+1] << 8) | (b[j+0] << 0); j += 2
 		self.src = (b[j+1] << 8) | (b[j+0] << 0); j += 2
 		self.radius = b[j]; j += 1
 		self.seq = b[j]; j += 1
 
+		self.ext_dst = None
+		self.ext_src = None
+
+		# extended dest is present
 		if dst_mode:
-			# extended dest is present
 			self.ext_dst = b[j:j+8]
 			j += 8
-		else:
-			self.ext_dst = None
 
+		# extended source is present
 		if src_mode:
-			# extended source is present
 			self.ext_src = b[j:j+8]
 			j += 8
-		else:
-			self.ext_src = None
 
 		if not self.security:
 			# the rest of the packet is the payload
@@ -116,6 +138,48 @@ class ZigbeeNetwork:
 			# and validate the message.
 			self.ccm_decrypt(b, j)
 		return self
+
+	# Convert an object back to bytes, with optional encryption
+	def serialize(self):
+		hdr = bytearray()
+		fcf = 0 \
+			| (self.frame_type << 0) \
+			| (self.version << 2) \
+			| (self.discover_route << 6) \
+			| (self.multicast << 8) \
+			| (self.security << 9) \
+			| (self.source_route << 10)
+		hdr.append(0) # FCF will be filled in later
+		hdr.append(0)
+		hdr.append((self.dst >> 0) & 0xFF)
+		hdr.append((self.dst >> 8) & 0xFF)
+		hdr.append((self.src >> 0) & 0xFF)
+		hdr.append((self.src >> 8) & 0xFF)
+		hdr.append(self.radius)
+		hdr.append(self.seq)
+		if self.ext_dst is not None:
+			hdr.extend(self.ext_dst)
+			fcf |= 1 << 11
+		if self.ext_src is not None:
+			hdr.extend(self.ext_src)
+			fcf |= 1 << 12
+
+		if type(self.payload) is bytes or type(self.payload) is bytearray:
+			payload = self.payload
+		else:
+			payload = self.payload.serialize()
+
+		# fill in the updated field control field
+		print("fcf=%04x" % (fcf))
+		hdr[0] = (fcf >> 0) & 0xFF
+		hdr[1] = (fcf >> 8) & 0xFF
+
+		if not self.security:
+			hdr.extend(payload)
+			return hdr
+		else:
+			fcf |= 1 << 9
+			return self.ccm_encrypt(hdr, payload)
 
 	# security header is present; b contains the entire Zigbee NWk header
 	# so that the entire MIC can be computed
@@ -169,16 +233,54 @@ class ZigbeeNetwork:
 			self.payload = C
 			self.valid = True
 
+	# Re-encrypt a message and return the security header plus encrypted payload and MIC
+	def ccm_encrypt(self, hdr, payload):
+		sec_hdr = (0x05 << 0) \
+			| (self.sec_key << 3) \
+			| (1 << 5)
+		sec_hdr_offset = len(hdr) # for updates later
+		hdr.append(sec_hdr)
+		hdr.extend(self.sec_seq)
+		hdr.extend(self.sec_src) # should be only if we have a sec_src, but it has better be there
+		hdr.append(self.sec_key_seq)
+
+		nonce = bytearray(16)
+		nonce[0] = 0x01
+		nonce[1:9] = self.sec_src
+		nonce[9:13] = self.sec_seq
+		nonce[13] = sec_hdr
+		nonce[14] = 0x00
+		nonce[15] = 0x00
+
+		mic = CCM.encrypt(hdr, payload, nonce, self.aes)
+
+		# payload is encrypted in place
+		hdr.extend(payload)
+		hdr.extend(mic)
+
+		# for WTF reasons, they don't send the MIC parameters in the header.
+		hdr[sec_hdr_offset] = sec_hdr & ~7
+
+		return hdr
+		
 
 if __name__ == "__main__":
 	import AES
 	import IEEE802154
+	from binascii import hexlify
 	nwk_key = b"\x01\x03\x05\x07\x09\x0b\x0d\x0f\x00\x02\x04\x06\x08\x0a\x0c\x0d"
 	aes = AES.AES(nwk_key)
-	ieee = IEEE802154.IEEE802154(data=bytearray(b'A\x88\xacb\x1a\xff\xff\x00\x00\t\x12\xfc\xff\x00\x00\x01\x04\xb1\x9d\xe8\x0b\x00K\x12\x00(\x82\xf9\x04\x00\xb1\x9d\xe8\x0b\x00K\x12\x00\x00:\x0f6y\r7'))
+	golden = bytearray(b'A\x88\xacb\x1a\xff\xff\x00\x00\t\x12\xfc\xff\x00\x00\x01\x04\xb1\x9d\xe8\x0b\x00K\x12\x00(\x82\xf9\x04\x00\xb1\x9d\xe8\x0b\x00K\x12\x00\x00:\x0f6y\r7')
+	ieee = IEEE802154.IEEE802154(data=golden)
 	#print(ieee)
 	ieee.payload = ZigbeeNetwork(aes=aes, data=ieee.payload)
 	print(ieee)
+
+	round_trip = ieee.serialize()
+	print(hexlify(golden))
+	print(hexlify(round_trip))
+	if golden != round_trip:
+		print("---- bad round trip!")
 
 
 	print(ZigbeeNetwork(aes=aes, data=bytearray(b'\x08\x02\xfc\xff\x00\x00\x1e\xe1(X\xf9\x04\x00\xb1\x9d\xe8\x0b\x00K\x12\x00\x00W\xd6\xa8\xcc=\x0eo\x95\xee\xa0+\xdf\x1e=\xa3')))

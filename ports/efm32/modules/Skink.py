@@ -1,9 +1,9 @@
 import Radio
 import AES
 import IEEE802154
-from ZigbeeNetwork import ZigbeeNetwork
-from ZigbeeApplication import ZigbeeApplication
-from Packet import Packet
+import ZigbeeNetwork
+import ZigbeeApplication
+import ZigbeeCluster
 
 # This is the "well known" zigbee2mqtt key.
 # The Ikea gateway uses a different key that has to be learned
@@ -28,15 +28,24 @@ def loop(sniff):
 			continue
 
 		try:
+			print("------")
 			# discard the weird bytes
 			data = b[:-2]
-			#print(data)
-			packet = IEEE802154.Packet(data=data)
-			if packet.frame_type == IEEE802154.FRAME_TYPE_DATA:
-				packet.payload = ZigbeeNetwork(data=packet.payload, aes=aes)
-				packet.payload.payload = ZigbeeApplication(data=packet.payload.payload)
-				
-			print(packet)
+			print(data)
+			ieee = IEEE802154.Packet(data=data)
+			print(ieee)
+			if ieee.frame_type != IEEE802154.FRAME_TYPE_DATA:
+				continue
+			nwk = ZigbeeNetwork.ZigbeeNetwork(aes=aes, data=ieee.payload)
+			print(nwk)
+			if nwk.frame_type != ZigbeeNetwork.FRAME_TYPE_DATA:
+				continue
+			aps = ZigbeeApplication.ZigbeeApplication(data=nwk.payload)
+			print(aps)
+			if aps.frame_type != ZigbeeApplication.FRAME_TYPE_DATA:
+				continue
+			zcl = ZigbeeCluster.ZigbeeCluster(data=aps.payload)
+			print(zcl)
 		except:
 			print(b[:-2])
 			raise

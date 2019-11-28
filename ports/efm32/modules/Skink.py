@@ -28,24 +28,43 @@ def loop(sniff):
 			continue
 
 		try:
-			print("------")
+			#print("------")
 			# discard the weird bytes, not FCS, not sure what they are
 			data = b[:-2]
-			print(data)
+			#print(data)
 			ieee = IEEE802154.IEEE802154(data=data)
-			print(ieee)
+			#print(ieee)
 			if ieee.frame_type != IEEE802154.FRAME_TYPE_DATA:
 				continue
-			nwk = ZigbeeNetwork.ZigbeeNetwork(aes=aes, data=ieee.payload)
-			print(nwk)
+			nwk = ZigbeeNetwork.ZigbeeNetwork(data=ieee.payload, aes=aes, validate=False)
+			ieee.payload = nwk
+			#print(nwk)
 			if nwk.frame_type != ZigbeeNetwork.FRAME_TYPE_DATA:
 				continue
 			aps = ZigbeeApplication.ZigbeeApplication(data=nwk.payload)
-			print(aps)
+			nwk.payload = aps
+			#print(aps)
 			if aps.frame_type != ZigbeeApplication.FRAME_TYPE_DATA:
 				continue
+
+			# join requests are "special" for now
+			if aps.cluster == 0x36:
+				continue
+
 			zcl = ZigbeeCluster.ZigbeeCluster(data=aps.payload)
-			print(zcl)
+			aps.payload = zcl
+
+			print("%04x %04x: cluster %04x cmd %02x/%d" % (
+				ieee.src,
+				ieee.dst,
+				aps.cluster,
+				zcl.command,
+				zcl.direction,
+			))
+			#if zcl.direction == ZigbeeCluster.DIRECTION_TO_CLIENT:
+			#print(bytes(data))
+			#print(ieee)
+			#print(zcl)
 		except:
 			print(b[:-2])
 			raise

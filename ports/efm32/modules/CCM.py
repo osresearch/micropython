@@ -12,20 +12,21 @@
 # This does not handle l_m > 65535, but zigbee never has more than 64 bytes
 # There is weirdness in the B0 computation that hardcodes the length l_M
 
-def decrypt(auth, message, mic, nonce, aes):
+def decrypt(auth, message, mic, nonce, aes, validate=True):
 	l_m = len(message)
 	l_M = len(mic)
 	l_a = len(auth)
 
 	if l_M != 4:
-		throw("MIC must be 4 bytes")
+		raise("MIC must be 4 bytes")
 	if len(nonce) != 16:
-		throw("Nonce must be 16 bytes")
+		raise("Nonce must be 16 bytes")
 
-	# decrypt the MIC block in place
-	xor = aes.encrypt(nonce)
-	for j in range(l_M):
-		mic[j] ^= xor[j]
+	# decrypt the MIC block in place if there is a MIC
+	if validate:
+		xor = aes.encrypt(nonce)
+		for j in range(l_M):
+			mic[j] ^= xor[j]
 
 	# decrypt each 16-byte block in counter mode
 	# including any partial block at the end
@@ -39,6 +40,10 @@ def decrypt(auth, message, mic, nonce, aes):
 		xor = aes.encrypt(nonce)
 		for j in range(block_len):
 			message[i+j] ^= xor[j]
+
+	# avoid the extra encryption if not validating
+	if not validate:
+		return True
 
 	#
 	# check the message integrity code with the messy CCM*
@@ -92,7 +97,7 @@ def encrypt(auth, message, nonce, aes):
 	l_a = len(auth)
 
 	if len(nonce) != 16:
-		throw("Nonce must be 16 bytes")
+		raise("Nonce must be 16 bytes")
 
 	# Generate the first cipher block B0
 	# and run in CBC mode to compute the MIC

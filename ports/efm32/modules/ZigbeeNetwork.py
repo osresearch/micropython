@@ -8,6 +8,9 @@
 # Zigbee Trust Center key: 5A:69:67:42:65:65:41:6C:6C:69:61:6E:63:65:30:39
 FRAME_TYPE_DATA = 0
 FRAME_TYPE_CMD = 1
+FRAME_TYPE_RESERVED = 2
+FRAME_TYPE_PAN = 3
+
 import CCM
 
 class ZigbeeNetwork:
@@ -21,14 +24,16 @@ class ZigbeeNetwork:
 		ext_src = None,
 		ext_dst = None,
 		data = None,
-		aes = None,
 		security = False,
 		sec_seq = 0,
 		sec_src = None,
 		sec_key = 0,
-		sec_key_seq = 0
+		sec_key_seq = 0,
+		aes = None,
+		validate = True,
 	):
 		self.aes = aes
+		self.validate = validate
 
 		if data is not None:
 			self.deserialize(data)
@@ -61,7 +66,7 @@ class ZigbeeNetwork:
 
 		if self.security:
 			params.extend([
-				"security=True",
+				"security=1",
 				"sec_seq=" + str(self.sec_seq),
 				"sec_key=" + str(self.sec_key),
 				"sec_key_seq=" + str(self.sec_key_seq)
@@ -88,15 +93,6 @@ class ZigbeeNetwork:
 		self.src = (b[j+1] << 8) | (b[j+0] << 0); j += 2
 		self.radius = b[j]; j += 1
 		self.seq = b[j]; j += 1
-
-#		if frame_type == 0x0:
-#			self.frame_type = "ZDAT"
-#		elif frame_type == 0x1:
-#			self.frame_type = "ZCMD"
-#		elif frame_type == 0x2:
-#			self.frame_type = "ZRSV"
-#		elif frame_type == 0x3:
-#			self.frame_type = "ZPAN"
 
 		if dst_mode:
 			# extended dest is present
@@ -164,7 +160,7 @@ class ZigbeeNetwork:
 		C = b[j:-4]  # cipher text
 		M = b[-4:]   # message integrity code
 
-		if not CCM.decrypt(auth, C, M, nonce, self.aes):
+		if not CCM.decrypt(auth, C, M, nonce, self.aes, validate=self.validate):
 			print("BAD DECRYPT: ", b)
 			#print("message=", C)
 			self.payload = C

@@ -84,24 +84,52 @@ class ZigbeeApplication:
 
 		return self
 
+	def serialize(self):
+		hdr = bytearray()
+		fcf = 0 \
+			| (self.frame_type << 0) \
+			| (self.mode << 2) \
+			| (self.ack_req << 7)
+
+		hdr.append(fcf)
+		if self.mode == MODE_GROUP:
+			hdr.append((self.dst >> 0) & 0xFF)
+			hdr.append((self.dst >> 8) & 0xFF)
+		else:
+			hdr.append(self.dst & 0xFF)
+
+		hdr.append((self.cluster >> 0) & 0xFF)
+		hdr.append((self.cluster >> 8) & 0xFF)
+		hdr.append((self.profile >> 0) & 0xFF)
+		hdr.append((self.profile >> 8) & 0xFF)
+		hdr.append(self.src)
+		hdr.append(self.seq)
+
+		if type(self.payload) is bytes or type(self.payload) is bytearray:
+			hdr.extend(self.payload)
+		else:
+			hdr.extend(self.payload.serialize())
+
+		return hdr
+
 
 if __name__ == "__main__":
 	import AES
 	import IEEE802154
+	from binascii import hexlify
 	from ZigbeeNetwork import ZigbeeNetwork
 	nwk_key = b"\x01\x03\x05\x07\x09\x0b\x0d\x0f\x00\x02\x04\x06\x08\x0a\x0c\x0d"
 	aes = AES.AES(nwk_key)
-	ieee = IEEE802154.IEEE802154(data=bytearray(b'A\x88\xacb\x1a\xff\xff\x00\x00\t\x12\xfc\xff\x00\x00\x01\x04\xb1\x9d\xe8\x0b\x00K\x12\x00(\x82\xf9\x04\x00\xb1\x9d\xe8\x0b\x00K\x12\x00\x00:\x0f6y\r7'))
-	#print(ieee)
-	ieee.payload = ZigbeeNetwork(aes=aes, data=ieee.payload)
+	golden = bytearray.fromhex("41883b621affff00004802fdff382b0b432887480400b19de80b004b120000055665c14f13102410078a3d12501ff1")
+	ieee = IEEE802154.IEEE802154(data=golden)
+	nwk = ZigbeeNetwork(aes=aes, data=ieee.payload)
+	ieee.payload = nwk
+	golden_aps = nwk.payload
+	aps = ZigbeeApplication(data=nwk.payload)
+	nwk.payload = aps
 	print(ieee)
-
-
-	print(ZigbeeNetwork(aes=aes, data=bytearray(b'\x08\x02\xfc\xff\x00\x00\x1e\xe1(X\xf9\x04\x00\xb1\x9d\xe8\x0b\x00K\x12\x00\x00W\xd6\xa8\xcc=\x0eo\x95\xee\xa0+\xdf\x1e=\xa3')))
-
-	print("----")
-	ieee = IEEE802154.IEEE802154(data=bytearray.fromhex("41883b621affff00004802fdff382b0b432887480400b19de80b004b120000055665c14f13102410078a3d12501ff1"))
-	print(ieee)
-	ieee.payload = ZigbeeNetwork(aes=aes, data=ieee.payload)
-	ieee.payload.payload = ZigbeeApplication(data=ieee.payload.payload)
-	print(ieee)
+	round_trip = ieee.serialize()
+	if golden != round_trip:
+		print("---- bad round trip!")
+		print(hexlify(golden_aps))
+		print(hexlify(aps.serialize()))

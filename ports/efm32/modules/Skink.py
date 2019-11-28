@@ -29,10 +29,10 @@ def loop(sniff):
 
 		try:
 			print("------")
-			# discard the weird bytes
+			# discard the weird bytes, not FCS, not sure what they are
 			data = b[:-2]
 			print(data)
-			ieee = IEEE802154.Packet(data=data)
+			ieee = IEEE802154.IEEE802154(data=data)
 			print(ieee)
 			if ieee.frame_type != IEEE802154.FRAME_TYPE_DATA:
 				continue
@@ -63,4 +63,4 @@ def sniff():
 
 def join():
 	Radio.promiscuous(False)
-	Radio.tx(IEEE802154.serialize())
+	#Radio.tx(IEEE802154.serialize())

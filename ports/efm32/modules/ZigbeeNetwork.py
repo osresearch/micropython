@@ -179,7 +179,7 @@ if __name__ == "__main__":
 	import IEEE802154
 	nwk_key = b"\x01\x03\x05\x07\x09\x0b\x0d\x0f\x00\x02\x04\x06\x08\x0a\x0c\x0d"
 	aes = AES.AES(nwk_key)
-	ieee = IEEE802154.Packet(data=bytearray(b'A\x88\xacb\x1a\xff\xff\x00\x00\t\x12\xfc\xff\x00\x00\x01\x04\xb1\x9d\xe8\x0b\x00K\x12\x00(\x82\xf9\x04\x00\xb1\x9d\xe8\x0b\x00K\x12\x00\x00:\x0f6y\r7'))
+	ieee = IEEE802154.IEEE802154(data=bytearray(b'A\x88\xacb\x1a\xff\xff\x00\x00\t\x12\xfc\xff\x00\x00\x01\x04\xb1\x9d\xe8\x0b\x00K\x12\x00(\x82\xf9\x04\x00\xb1\x9d\xe8\x0b\x00K\x12\x00\x00:\x0f6y\r7'))
 	#print(ieee)
 	ieee.payload = ZigbeeNetwork(aes=aes, data=ieee.payload)
 	print(ieee)
@@ -188,7 +188,7 @@ if __name__ == "__main__":
 	print(ZigbeeNetwork(aes=aes, data=bytearray(b'\x08\x02\xfc\xff\x00\x00\x1e\xe1(X\xf9\x04\x00\xb1\x9d\xe8\x0b\x00K\x12\x00\x00W\xd6\xa8\xcc=\x0eo\x95\xee\xa0+\xdf\x1e=\xa3')))
 
 	print("----")
-	ieee = IEEE802154.Packet(data=bytearray.fromhex("41883b621affff00004802fdff382b0b432887480400b19de80b004b120000055665c14f13102410078a3d12501ff1"))
+	ieee = IEEE802154.IEEE802154(data=bytearray.fromhex("41883b621affff00004802fdff382b0b432887480400b19de80b004b120000055665c14f13102410078a3d12501ff1"))
 	print(ieee)
 	ieee.payload = ZigbeeNetwork(aes=aes, data=ieee.payload)
 	print(ieee)

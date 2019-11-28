@@ -5,7 +5,7 @@ FRAME_TYPE_DATA = 0x1
 FRAME_TYPE_ACK = 0x2
 FRAME_TYPE_CMD = 0x3
 
-class Packet:
+class IEEE802154:
 	# Construct an IEEE802154 packet either from individual parts
 	# or from a byte stream off the radio passed in as data.
 	def __init__(self,
@@ -195,11 +195,11 @@ class Packet:
 
 		params.append("payload=" + str(self.payload))
 
-		return "IEEE802154.Packet(" + ", ".join(params) + ")"
+		return "IEEE802154(" + ", ".join(params) + ")"
 
 if __name__ == "__main__":
 	#from binascii import hexlify
-	join_test = Packet(
+	join_test = IEEE802154(
 		dst		= 0x0000,
 		dst_pan		= 0x1a62,
 		src		= b'\x58\xdf\x3e\xfe\xff\x57\xb4\x14',
@@ -214,14 +214,14 @@ if __name__ == "__main__":
 		print("serial join test failed:")
 		print(join_test)
 		print(join_golden)
-	join_round = Packet(data=join_golden)
+	join_round = IEEE802154(data=join_golden)
 	if join_round.serialize() != join_golden:
 		print("join round trip failed:");
 		print(join_round)
 		print(join_golden)
 
 
-	resp_test = Packet(
+	resp_test = IEEE802154(
 		src		= b'\xb1\x9d\xe8\x0b\x00\x4b\x12\x00',
 		dst		= b'\x58\xdf\x3e\xfe\xff\x57\xb4\x14',
 		dst_pan		= 0x1a62, # dst_pan

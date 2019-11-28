@@ -6,7 +6,8 @@
 # ZigbeeClusterLibrary (ZCL)
 
 # Zigbee Trust Center key: 5A:69:67:42:65:65:41:6C:6C:69:61:6E:63:65:30:39
-FRAME_TYPE_DATA = 1
+FRAME_TYPE_DATA = 0
+FRAME_TYPE_CMD = 1
 import CCM
 
 class ZigbeeNetwork:

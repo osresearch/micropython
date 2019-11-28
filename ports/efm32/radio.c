@@ -296,8 +296,8 @@ static mp_obj_t radio_init(void)
 	RAIL_SetTxPower(rail, 255); // max
 
 	// use the device unique id as the mac for network index 0
-	memcpy(&MAC_address[0], (const void*)&DEVINFO->UNIQUEH, 4);
-	memcpy(&MAC_address[4], (const void*)&DEVINFO->UNIQUEL, 4);
+	memcpy(&MAC_address[0], (const void*)&DEVINFO->UNIQUEL, 4);
+	memcpy(&MAC_address[4], (const void*)&DEVINFO->UNIQUEH, 4);
 	RAIL_IEEE802154_SetLongAddress(rail, MAC_address, 0);
 
 	// start the radio

@@ -54,17 +54,15 @@ def loop(sniff):
 			zcl = ZigbeeCluster.ZigbeeCluster(data=aps.payload)
 			aps.payload = zcl
 
-			print("%04x %04x: cluster %04x cmd %02x/%d" % (
-				ieee.src,
-				ieee.dst,
+			print("%02x %04x%c %04x: cluster %04x:%02x/%d" % (
+				nwk.seq,
+				nwk.src,
+				' ' if nwk.src == ieee.src else '+', # repeater
+				nwk.dst,
 				aps.cluster,
 				zcl.command,
 				zcl.direction,
 			))
-			#if zcl.direction == ZigbeeCluster.DIRECTION_TO_CLIENT:
-			#print(bytes(data))
-			#print(ieee)
-			#print(zcl)
 		except:
 			print(b[:-2])
 			raise

@@ -102,7 +102,6 @@ class ZigbeeNetwork:
 	def deserialize(self, b):
 		j = 0
 		fcf = (b[j+1] << 8) | (b[j+0] << 0); j += 2
-		#print("FCF=%04x" % (fcf))
 		self.frame_type		= (fcf >> 0) & 3
 		self.version		= (fcf >> 2) & 15
 		self.discover_route	= (fcf >> 6) & 3
@@ -170,7 +169,6 @@ class ZigbeeNetwork:
 			payload = self.payload.serialize()
 
 		# fill in the updated field control field
-		print("fcf=%04x" % (fcf))
 		hdr[0] = (fcf >> 0) & 0xFF
 		hdr[1] = (fcf >> 8) & 0xFF
 

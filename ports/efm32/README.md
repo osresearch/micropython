@@ -27,9 +27,11 @@ for storing OTA images or other things.
 * Frozen modules work -- add files into the `modules` directory to bundle them into the image
 * ZigBee messages are parsed in Python [`modules/IEEE802154.py`](modules/IEEE802154.py)
 * GPIO (partially; need to adapt the real MicroPython pins)
+* Joining the coordinator seems to work; lots of messages are acked and sent
 
 ## Not yet supported
 * Interrupting the REPL
+* TX UART FIFO so that the CPU isn't busywaiting on the serial port
 * Over the air updates to the frozen modules
 * Zigbee OTA
 * Bluetooth LE

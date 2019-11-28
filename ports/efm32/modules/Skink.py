@@ -18,9 +18,8 @@ Radio.init()
 
 def loop(sniff):
 	if sniff:
-		Radio.promiscuous(True)
-	#parser = IEEE802154(AES(nwk_key))
-	#data = Packet()
+		Radio.promiscuous(1)
+
 	while True:
 		# the radio is a global from the micropython environment
 		b = Radio.rx()
@@ -92,30 +91,35 @@ def tx(msg):
 def beacon():
 	tx(beacon_packet)
 
+max_spins = 100000
+
+def wait_packet(wait_type):
+	spins = 0
+	while spins < max_spins:
+		spins += 1
+		b = Radio.rx()
+		if b is None:
+			continue
+		# fast discard
+		frame_type = b[0] & 0x7
+		if frame_type != wait_type:
+			continue
+		ieee = IEEE802154.IEEE802154(data=b[:-2])
+		print("<--", ieee)
+		return ieee
+	return None
+
 def discover_pan():
 	for i in range(10):
 		beacon()
-		for i in range(1000000):
-			b = Radio.rx()
-			if b is None:
-				continue
-			ieee = IEEE802154.IEEE802154(data=b[:-2])
-			print("<--", ieee)
-			if ieee.frame_type == IEEE802154.FRAME_TYPE_BEACON:
-				return ieee.src_pan
+		ieee = wait_packet(IEEE802154.FRAME_TYPE_BEACON)
+		if ieee is not None:
+			return ieee.src_pan
 	return None
 	
 
 def wait_ack():
-	for i in range(1000000):
-		b = Radio.rx()
-		if b is None:
-			continue
-		ieee = IEEE802154.IEEE802154(data=b[:-2])
-		print("<--", ieee)
-		if ieee.frame_type == IEEE802154.FRAME_TYPE_ACK:
-			return True
-	return False
+	return wait_packet(IEEE802154.FRAME_TYPE_ACK) is not None
 
 def leave():
 	global seq
@@ -143,10 +147,18 @@ def leave():
 	))
 	seq += 1
 
+def ack(seq):
+	tx(IEEE802154.IEEE802154(
+		frame_type	= IEEE802154.FRAME_TYPE_ACK,
+		seq		= seq
+	))
+
 def join():
 	global seq
+	global nwk
 
-	Radio.promiscuous(False)
+	Radio.promiscuous(1)
+
 	pan = discover_pan()
 	if pan is None:
 		print("No PAN received?")
@@ -168,12 +180,17 @@ def join():
 	seq = seq + 1
 
 	if not wait_ack():
-		print("No ack received?")
+		print("JOIN No ack received?")
 		return False
+
+	print("JOIN ack received")
+	#for i in range(10000):
+	#	pass
 
 	tx(IEEE802154.IEEE802154(
 		frame_type	= IEEE802154.FRAME_TYPE_CMD,
 		command		= IEEE802154.COMMAND_DATA_REQUEST,
+		ack_req		= True,
 		seq		= seq,
 		src		= mac,
 		dst		= 0x0000,
@@ -181,5 +198,29 @@ def join():
 		payload		= b'',
 	))
 	seq = seq + 1
+
+	if not wait_ack():
+		print("DATA No ack received?")
+		return False
+
+	print("DATA ack received")
+
+	assoc = wait_packet(IEEE802154.FRAME_TYPE_CMD)
+	if assoc is None:
+		print("ASSOCIATE RESPONSE not received?")
+		return False
+	ack(assoc.seq)
+	if assoc.command != IEEE802154.COMMAND_JOIN_RESPONSE:
+		print("Not an associate response?")
+		return False
+	nwk = (assoc.payload[0] << 0) | (assoc.payload[1] << 8)
+	status = assoc.payload[2]
+
+	print("New network address 0x%04x status %d" % (nwk, status))
+	Radio.address(nwk, pan)
+	Radio.promiscuous(0)
+
+	#print("Running loop")
+	#loop(1)
 
 	return True

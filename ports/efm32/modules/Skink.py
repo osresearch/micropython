@@ -78,6 +78,108 @@ def sniff():
 		print()
 
 
+seq = 99
+pan = 0x1a62
+mac = Radio.mac()
+beacon_packet = IEEE802154.IEEE802154(frame_type=3, seq=99, command=7, dst=0xffff, dst_pan=0xffff)
+
+def tx(msg):
+	print("-->", msg)
+	b = msg.serialize()
+	#print(b)
+	Radio.tx(b)
+
+def beacon():
+	tx(beacon_packet)
+
+def discover_pan():
+	for i in range(10):
+		beacon()
+		for i in range(1000000):
+			b = Radio.rx()
+			if b is None:
+				continue
+			ieee = IEEE802154.IEEE802154(data=b[:-2])
+			print("<--", ieee)
+			if ieee.frame_type == IEEE802154.FRAME_TYPE_BEACON:
+				return ieee.src_pan
+	return None
+	
+
+def wait_ack():
+	for i in range(1000000):
+		b = Radio.rx()
+		if b is None:
+			continue
+		ieee = IEEE802154.IEEE802154(data=b[:-2])
+		print("<--", ieee)
+		if ieee.frame_type == IEEE802154.FRAME_TYPE_ACK:
+			return True
+	return False
+
+def leave():
+	global seq
+	tx(IEEE802154.IEEE802154(
+		frame_type=IEEE802154.FRAME_TYPE_DATA,
+		seq=seq,
+		dst=0x0000,
+		dst_pan=pan,
+		src=0x333d,
+		payload=ZigbeeNetwork.ZigbeeNetwork(
+			frame_type=ZigbeeNetwork.FRAME_TYPE_CMD,
+			version=2,
+			radius=1,
+			seq=12,
+			dst=0xfffd,
+			src=mac,
+			discover_route=0,
+			security=1,
+			sec_seq=bytearray(b';\x00\x00\x00'),
+			sec_key=1,
+			sec_key_seq=0,
+			ext_src=mac,
+			payload=bytearray(b'\x04\x00')
+		),
+	))
+	seq += 1
+
 def join():
+	global seq
+
 	Radio.promiscuous(False)
-	#Radio.tx(IEEE802154.serialize())
+	pan = discover_pan()
+	if pan is None:
+		print("No PAN received?")
+		return False
+
+	print("PAN=0x%04x" % (pan))
+
+	tx(IEEE802154.IEEE802154(
+		frame_type	= IEEE802154.FRAME_TYPE_CMD,
+		command		= IEEE802154.COMMAND_JOIN_REQUEST,
+		seq		= seq,
+		src		= mac,
+		src_pan		= 0xFFFF,
+		dst		= 0x0000,
+		dst_pan		= pan,
+		ack_req		= True,
+		payload		= b'\x80', # Battery powered, please allocate address
+	))
+	seq = seq + 1
+
+	if not wait_ack():
+		print("No ack received?")
+		return False
+
+	tx(IEEE802154.IEEE802154(
+		frame_type	= IEEE802154.FRAME_TYPE_CMD,
+		command		= IEEE802154.COMMAND_DATA_REQUEST,
+		seq		= seq,
+		src		= mac,
+		dst		= 0x0000,
+		dst_pan		= pan,
+		payload		= b'',
+	))
+	seq = seq + 1
+
+	return True

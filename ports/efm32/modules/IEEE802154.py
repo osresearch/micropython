@@ -15,6 +15,7 @@ class Packet:
 		src_pan = None,
 		dst_pan = None,
 		seq = 0,
+		command = None,
 		payload = b'',
 		ack_req = False,
 		data = None
@@ -44,6 +45,7 @@ class Packet:
 		self.dst = None
 		self.dst_pan = None
 		self.src_pan = None
+		self.command = None
 
 		self.seq = b[j]
 		j += 1
@@ -83,11 +85,13 @@ class Packet:
 			else:
 				throw("Unknown src_mode %d" % (src_mode))
 
+		if self.frame_type == FRAME_TYPE_CMD:
+			self.command = b[j]
+			j += 1
+
 		# the rest of the message is the payload for the next layer
-		#if self.frame_type == FRAME_TYPE_DATA:
-			#self.payload = Zigbee(data=b[j:])
-		#else:
 		self.payload = b[j:]
+
 		return self
 
 	def serialize(self):
@@ -142,6 +146,9 @@ class Packet:
 		hdr[0] = (fcf >> 0) & 0xFF
 		hdr[1] = (fcf >> 8) & 0xFF
 
+		if self.frame_type == FRAME_TYPE_CMD:
+			hdr.extend(self.command)
+
 		if type(self.payload) is bytes or type(self.payload) is bytearray:
 			hdr.extend(self.payload)
 		else:
@@ -165,6 +172,9 @@ class Packet:
 			"frame_type=" + str(self.frame_type),
 			"seq=" + str(self.seq),
 		]
+
+		if self.frame_type == FRAME_TYPE_CMD:
+			params.append("command=0x%02x" % (self.command))
 
 		if self.ack_req:
 			params.append("ack_req=1")

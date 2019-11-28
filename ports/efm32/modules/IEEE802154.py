@@ -5,6 +5,11 @@ FRAME_TYPE_DATA = 0x1
 FRAME_TYPE_ACK = 0x2
 FRAME_TYPE_CMD = 0x3
 
+COMMAND_JOIN_REQUEST = 0x01
+COMMAND_JOIN_RESPONSE = 0x02
+COMMAND_DATA_REQUEST = 0x04
+COMMAND_BEACON_REQUEST = 0x07
+
 class IEEE802154:
 	# Construct an IEEE802154 packet either from individual parts
 	# or from a byte stream off the radio passed in as data.
@@ -15,7 +20,7 @@ class IEEE802154:
 		src_pan = None,
 		dst_pan = None,
 		seq = 0,
-		command = None,
+		command = 0,
 		payload = b'',
 		ack_req = False,
 		data = None
@@ -29,6 +34,7 @@ class IEEE802154:
 			self.dst_pan = dst_pan
 			self.seq = seq
 			self.payload = payload
+			self.command = command
 		else:
 			self.deserialize(data)
 
@@ -147,7 +153,7 @@ class IEEE802154:
 		hdr[1] = (fcf >> 8) & 0xFF
 
 		if self.frame_type == FRAME_TYPE_CMD:
-			hdr.extend(self.command)
+			hdr.append(self.command)
 
 		if type(self.payload) is bytes or type(self.payload) is bytearray:
 			hdr.extend(self.payload)
@@ -206,7 +212,8 @@ if __name__ == "__main__":
 		src_pan		= 0xFFFF,
 		seq		= 123,
 		frame_type	= 0x3, # command
-		payload		= b'\x01\x80',
+		command		= COMMAND_JOIN_REQUEST,
+		payload		= b'\x80',
 		ack_req		= True
 	)
 	join_golden = bytearray(b'\x23\xc8\x7b\x62\x1a\x00\x00\xff\xff\x58\xdf\x3e\xfe\xff\x57\xb4\x14\x01\x80')
@@ -220,6 +227,14 @@ if __name__ == "__main__":
 		print(join_round)
 		print(join_golden)
 
+	join_test = IEEE802154(frame_type=3, seq=218, command=0x01, ack_req=1, dst=0x0000, dst_pan=0x1a62, src=bytearray(b'X\xdf>\xfe\xffW\xb4\x14'), src_pan=0xffff, payload=bytearray(b'\x80'))
+	join_golden = bytearray.fromhex('23c8da621a0000ffff58df3efeff57b4140180')
+	join_round = join_test.serialize()
+	if join_round != join_golden:
+		print("join round trip failed:");
+		print(join_round)
+		print(join_golden)
+
 
 	resp_test = IEEE802154(
 		src		= b'\xb1\x9d\xe8\x0b\x00\x4b\x12\x00',
@@ -227,11 +242,12 @@ if __name__ == "__main__":
 		dst_pan		= 0x1a62, # dst_pan
 		seq		= 195, # seq
 		frame_type	= 0x3, # command
-		payload		= b'\x02\x3d\x33\x00',
+		command		= COMMAND_JOIN_RESPONSE,
+		payload		= b'\x3d\x33\x00',
 		ack_req		= True
 	)
 	resp_golden = bytearray(b'\x63\xcc\xc3\x62\x1a\x58\xdf\x3e\xfe\xff\x57\xb4\x14\xb1\x9d\xe8\x0b\x00\x4b\x12\x00\x02\x3d\x33\x00')
 	if resp_test.serialize() != resp_golden:
 		print("serial resp test failed:")
-		print(resp_test)
+		print(resp_test.serialize())
 		print(resp_golden)

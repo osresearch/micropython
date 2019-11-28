@@ -288,3 +288,11 @@ if __name__ == "__main__":
 	print(ieee)
 	ieee.payload = ZigbeeNetwork(aes=aes, data=ieee.payload)
 	print(ieee)
+
+	leave_golden = bytearray().fromhex('6188d2621a00003d330912fdff3d33010c58df3efeff57b414283b00000058df3efeff57b41400096d4102143c')
+	ieee = IEEE802154.IEEE802154(data=leave_golden)
+	ieee.payload = ZigbeeNetwork(aes=aes, data=ieee.payload)
+	print("Leave:", ieee)
+	round_trip = ieee.serialize()
+	if round_trip != leave_golden:
+		print("--- bad leave")

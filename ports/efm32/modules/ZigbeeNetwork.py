@@ -22,6 +22,7 @@ class ZigbeeNetwork:
 
 	# parse the ZigBee network layer
 	def __init__(self,
+		data = None,
 		frame_type = FRAME_TYPE_DATA,
 		version = 2,
 		discover_route = 1,
@@ -29,12 +30,13 @@ class ZigbeeNetwork:
 		source_route = 0,
 		src = 0,
 		dst = 0,
+		radius = 1,
+		seq = 0,
 		ext_src = None,
 		ext_dst = None,
-		data = None,
+		payload = b'',
 		security = False,
 		sec_seq = 0,
-		sec_src = None,
 		sec_key = 0,
 		sec_key_seq = 0,
 		aes = None,
@@ -51,6 +53,9 @@ class ZigbeeNetwork:
 			self.source_route = source_route
 			self.discover_route = discover_route
 			self.multicast = multicast
+			self.radius = radius
+			self.payload = payload
+			self.seq = seq
 			self.src = src
 			self.dst = dst
 			self.ext_src = ext_src
@@ -58,9 +63,9 @@ class ZigbeeNetwork:
 
 			self.security = security
 			self.sec_seq = sec_seq
-			self.sec_src = sec_src
 			self.sec_key = sec_key
 			self.sec_key_seq = sec_key_seq
+			self.valid = True # since we have a cleartext payload
 
 	def __str__(self):
 		params = [
@@ -89,8 +94,6 @@ class ZigbeeNetwork:
 				"sec_key=" + str(self.sec_key),
 				"sec_key_seq=" + str(self.sec_key_seq)
 			])
-			if self.sec_src is not None:
-				params.append("sec_src=" + str(self.sec_src))
 			if not self.valid:
 				params.append("valid=FALSE")
 
@@ -194,11 +197,11 @@ class ZigbeeNetwork:
 
 		# 8 byte ieee address, used in the extended nonce
 		if sec_hdr & 0x20: # extended nonce bit
-			self.sec_src = b[j:j+8]
+			self.ext_src = b[j:j+8]
 			j += 8
 		else:
 			# hopefully the one in the header was present
-			self.sec_src = None
+			self.ext_src = None
 
 		# The key seq tells us which key is used;
 		# should always be zero?
@@ -210,7 +213,7 @@ class ZigbeeNetwork:
 		# 1 byte of patched security control field
 		nonce = bytearray(16)
 		nonce[0] = 0x01
-		nonce[1:9] = self.sec_src
+		nonce[1:9] = self.ext_src
 		nonce[9:13] = self.sec_seq
 		nonce[13] = sec_hdr # modified sec hdr!
 		nonce[14] = 0x00
@@ -239,12 +242,12 @@ class ZigbeeNetwork:
 		sec_hdr_offset = len(hdr) # for updates later
 		hdr.append(sec_hdr)
 		hdr.extend(self.sec_seq)
-		hdr.extend(self.sec_src) # should be only if we have a sec_src, but it has better be there
+		hdr.extend(self.ext_src) # should be only if we have a ext_src, but it has better be there
 		hdr.append(self.sec_key_seq)
 
 		nonce = bytearray(16)
 		nonce[0] = 0x01
-		nonce[1:9] = self.sec_src
+		nonce[1:9] = self.ext_src
 		nonce[9:13] = self.sec_seq
 		nonce[13] = sec_hdr
 		nonce[14] = 0x00
@@ -296,3 +299,30 @@ if __name__ == "__main__":
 	round_trip = ieee.serialize()
 	if round_trip != leave_golden:
 		print("--- bad leave")
+
+	leave = IEEE802154.IEEE802154(
+		frame_type=IEEE802154.FRAME_TYPE_DATA,
+		seq=0xA5,
+		dst=0x0000,
+		dst_pan=0x1a62,
+		src=0x1234,
+		payload=ZigbeeNetwork(
+			aes=aes,
+			frame_type=FRAME_TYPE_CMD,
+			version=2,
+			radius=1,
+			seq=12,
+			dst=0xfffd,
+			src=0x1234,
+			ext_src=b'12345678',
+			discover_route=0,
+			security=1,
+			sec_seq=bytearray(b'\x00\x00\x00\x00'),
+			sec_key=1,
+			sec_key_seq=0,
+			payload=bytearray(b'\x04\x00')
+		),
+        )
+	print(leave)
+	print(leave.serialize())
+

@@ -111,22 +111,20 @@ class IEEE802154:
 			fcf |= 1 << 5 # Ack request
 
 		# Destination address mode
-		hdr.append((self.dst_pan >> 0) & 0xFF)
-		hdr.append((self.dst_pan >> 8) & 0xFF)
-		if type(self.dst) is int:
-			# short addressing, only 16-bits
-			fcf |= 0x2 << 10
-			hdr.append((self.dst >> 0) & 0xFF)
-			hdr.append((self.dst >> 8) & 0xFF)
-		elif self.dst is not None:
-			# long address, should be 8 bytes
-			if len(self.dst) != 8:
-				throw("dst address must be 8 bytes")
-			fcf |= 0x3 << 10
-			hdr.extend(self.dst)
-		else:
-			# no dst information? this isn't valid?
-			pass
+		if self.dst_pan is not None:
+			hdr.append((self.dst_pan >> 0) & 0xFF)
+			hdr.append((self.dst_pan >> 8) & 0xFF)
+			if type(self.dst) is int:
+				# short addressing, only 16-bits
+				fcf |= 0x2 << 10
+				hdr.append((self.dst >> 0) & 0xFF)
+				hdr.append((self.dst >> 8) & 0xFF)
+			elif self.dst is not None:
+				# long address, should be 8 bytes
+				if len(self.dst) != 8:
+					throw("dst address must be 8 bytes")
+				fcf |= 0x3 << 10
+				hdr.extend(self.dst)
 
 		# Source address mode; can be ommitted entirely
 		if self.src is not None:
@@ -251,3 +249,9 @@ if __name__ == "__main__":
 		print("serial resp test failed:")
 		print(resp_test.serialize())
 		print(resp_golden)
+
+	ack = IEEE802154(
+		frame_type	= FRAME_TYPE_ACK,
+		seq		= 123,
+	)
+	print(ack.serialize())

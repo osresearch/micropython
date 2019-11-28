@@ -161,16 +161,31 @@ class Packet:
 			self.payload = "Command %02x" % (cmd)
 
 	def __str__(self):
-		return "IEEE802154.Packet(" + ", ".join((
-			"dst=" + str(self.dst),
-			"dst_pan=" + str(self.dst_pan),
-			"src=" + str(self.src), 
-			"src_pan=" + str(self.src_pan),
-			"seq=" + str(self.seq),
+		params = [
 			"frame_type=" + str(self.frame_type),
-			"ack_req=" + str(self.ack_req),
-			"payload=" + str(self.payload)
-		)) + ")"
+			"seq=" + str(self.seq),
+		]
+
+		if self.ack_req:
+			params.append("ack_req=1")
+
+		if type(self.dst) is int:
+			params.append("dst=0x%04x" % (self.dst))
+		elif type(self.dst) is not None:
+			params.append("dst=" + str(self.dst))
+		if type(self.dst_pan) is int:
+			params.append("dst_pan=0x%04x" % (self.dst_pan))
+
+		if type(self.src) is int:
+			params.append("src=0x%04x" % (self.src))
+		elif type(self.src) is not None:
+			params.append("src=" + str(self.src))
+		if type(self.src_pan) is int:
+			params.append("src_pan=0x%04x" % (self.src_pan))
+
+		params.append("payload=" + str(self.payload))
+
+		return "IEEE802154.Packet(" + ", ".join(params) + ")"
 
 if __name__ == "__main__":
 	#from binascii import hexlify

@@ -7,6 +7,7 @@
 
 MODE_UNICAST = 0x0
 MODE_BROADCAST = 0x2
+MODE_GROUP = 0x3
 
 FRAME_TYPE_DATA = 0x0
 
@@ -40,14 +41,16 @@ class ZigbeeApplication:
 	def __str__(self):
 		params = [
 			"frame_type=" + str(self.frame_type),
-			"mode=" + str(self.mode),
-			"seq=" + str(self.seq),
-			"ack_req=" + str(self.ack_req),
-			"dst=0x%04x" % (self.dst),
-			"src=0x%04x" % (self.src),
 			"cluster=0x%04x" % (self.cluster),
 			"profile=0x%04x" % (self.profile),
+			"mode=" + str(self.mode),
+			"seq=" + str(self.seq),
+			"dst=0x%04x" % (self.dst),
+			"src=0x%04x" % (self.src),
 		]
+
+		if self.ack_req:
+			params.append("ack_req=1")
 
 		params.append("payload=" + str(self.payload))
 

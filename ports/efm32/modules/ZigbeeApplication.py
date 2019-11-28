@@ -10,6 +10,7 @@ MODE_BROADCAST = 0x2
 MODE_GROUP = 0x3
 
 FRAME_TYPE_DATA = 0x0
+FRAME_TYPE_ACK = 0x1
 
 class ZigbeeApplication:
 
@@ -24,7 +25,7 @@ class ZigbeeApplication:
 		cluster = 0,
 		profile = 0,
 		seq = 0,
-		ack_req = False
+		ack_req = False,
 	):
 		if data is not None:
 			self.deserialize(data)
@@ -45,9 +46,13 @@ class ZigbeeApplication:
 			"profile=0x%04x" % (self.profile),
 			"mode=" + str(self.mode),
 			"seq=" + str(self.seq),
-			"dst=0x%04x" % (self.dst),
-			"src=0x%04x" % (self.src),
+			"src=0x%02x" % (self.src),
 		]
+
+		if self.mode == MODE_GROUP:
+			params.append("dst=0x%04x" % (self.dst))
+		else:
+			params.append("dst=0x%02x" % (self.dst))
 
 		if self.ack_req:
 			params.append("ack_req=1")
@@ -58,16 +63,18 @@ class ZigbeeApplication:
 
 	def deserialize(self, b):
 		j = 0
-		fcf = (b[j+1] << 8) | (b[j+0] << 0); j += 2
+		fcf = b[j]; j += 1
 		self.frame_type = (fcf >> 0) & 3
 		self.mode = (fcf >> 2) & 3
 		self.ack_req = (fcf >> 7) & 1
 
-		# not parsed:
-		# security
-		# extended header
+		if self.mode == MODE_GROUP:
+			self.dst = (b[j+1] << 8) | (b[j+0] << 0)
+			j += 2
+		else:
+			self.dst = b[j]
+			j += 1
 
-		self.dst = b[j]; j += 1
 		self.cluster = (b[j+1] << 8) | (b[j+0] << 0); j += 2
 		self.profile = (b[j+1] << 8) | (b[j+0] << 0); j += 2
 		self.src = b[j]; j += 1

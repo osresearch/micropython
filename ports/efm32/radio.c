@@ -106,8 +106,10 @@ static void rail_callback_rfready(RAIL_Handle_t rail)
 	radio_state = RADIO_IDLE;
 }
 
-static volatile int rx_buffer_valid;
-static uint8_t rx_buffer[MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
+#define MAX_PKTS 8
+static volatile unsigned rx_buffer_write;
+static volatile unsigned rx_buffer_read;
+static uint8_t rx_buffers[MAX_PKTS][MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
 static uint8_t rx_buffer_copy[MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
 
 static uint8_t tx_buffer[MAC_PACKET_MAX_LENGTH];
@@ -139,8 +141,11 @@ static void process_packet(RAIL_Handle_t rail)
 		details.timeReceived.timePosition = RAIL_PACKET_TIME_DEFAULT;
 		details.timeReceived.totalPacketBytes = 0;
 		RAIL_GetRxPacketDetails(rail, handle, &details);
+
+		unsigned write_index = rx_buffer_write;
+		uint8_t * rx_buffer = rx_buffers[write_index];
 		RAIL_CopyRxPacket(rx_buffer, &info); // puts the length in byte 0
-		rx_buffer_valid = 1;
+		rx_buffer_write = (write_index + 1) % MAX_PKTS;
 
 		// cancel the ACK if the sender did not request one
 		// buffer[0] == length
@@ -232,43 +237,6 @@ static void rail_callback_events(RAIL_Handle_t rail, RAIL_Events_t events)
 	// lots of other events that we don't handle
 }
 
-#if 0
-/*
- * This will be called by the radio library when a data request is received.
- */
-void
-RAILCb_IEEE802154_DataRequestCommand(
-	RAIL_IEEE802154_Address_t *data
-)
-{
-  // Placeholder validation for when a data request should have the frame
-  // pending bit set in the ACK.
-  if (data->length == RAIL_IEEE802154_LongAddress)
-  {
-    printf("%d bytes from %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
-	data->length,
-	data->longAddress[0],
-	data->longAddress[1],
-	data->longAddress[2],
-	data->longAddress[3],
-	data->longAddress[4],
-	data->longAddress[5],
-	data->longAddress[6],
-	data->longAddress[7]
-    );
-    if (data->longAddress[0] == 0xAA)
-      RAIL_IEEE802154_SetFramePending();
-  } else {
-    if ((data->shortAddress & 0xFF) == 0xAA)
-    printf("%d bytes from %04x\n",
-	data->length,
-	data->shortAddress);
-      RAIL_IEEE802154_SetFramePending();
-  }
-}
-
-
-#endif
 
 static mp_obj_t radio_init(void)
 {
@@ -319,7 +287,7 @@ static mp_obj_t radio_rxbytes_get(void)
 	if (radio_state == RADIO_UNINIT)
 		radio_init();
 
-	if (!rx_buffer_valid)
+	if (rx_buffer_write == rx_buffer_read)
 		return mp_const_none;
 
 	static mp_obj_t rx_buffer_bytearray;
@@ -329,9 +297,11 @@ static mp_obj_t radio_rxbytes_get(void)
 	// resize the buffer for the return code and copy into it
 	CORE_ATOMIC_IRQ_DISABLE();
 	mp_obj_array_t * buf = MP_OBJ_TO_PTR(rx_buffer_bytearray);
+	unsigned read_index = rx_buffer_read;
+	uint8_t * const rx_buffer = rx_buffers[read_index];
 	buf->len = rx_buffer[0];
 	memcpy(rx_buffer_copy, rx_buffer+1, buf->len);
-	rx_buffer_valid = 0;
+	rx_buffer_read = (read_index + 1) % MAX_PKTS;
 	CORE_ATOMIC_IRQ_ENABLE();
 
 	return rx_buffer_bytearray;

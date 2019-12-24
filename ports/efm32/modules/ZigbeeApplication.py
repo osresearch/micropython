@@ -25,6 +25,7 @@ class ZigbeeApplication:
 		cluster = 0,
 		profile = 0,
 		seq = 0,
+		payload = None,
 		ack_req = False,
 	):
 		if data is not None:
@@ -38,6 +39,7 @@ class ZigbeeApplication:
 			self.profile = profile
 			self.seq = seq
 			self.ack_req = ack_req
+			self.payload = payload
 
 	def __str__(self):
 		params = [
@@ -133,3 +135,4 @@ if __name__ == "__main__":
 		print("---- bad round trip!")
 		print(hexlify(golden_aps))
 		print(hexlify(aps.serialize()))
+

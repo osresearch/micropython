@@ -68,6 +68,22 @@
 #define MICROPY_LONGINT_IMPL        (MICROPY_LONGINT_IMPL_NONE)
 #define MICROPY_FLOAT_IMPL          (MICROPY_FLOAT_IMPL_NONE)
 
+// Allow VFS access to the flash chip
+#define MICROPY_PY_MACHINE_SPI      (1)
+#define MICROPY_READER_VFS              (MICROPY_VFS)
+#define MICROPY_VFS                     (1)
+// use vfs's functions for import stat and builtin open
+#define mp_import_stat mp_vfs_import_stat
+#define mp_builtin_open mp_vfs_open
+#define mp_builtin_open_obj mp_vfs_open_obj
+
+
+// C version of AES
+//#define MICROPY_PY_UCRYPTOLIB           (1)
+#define MICROPY_PY_UBINASCII        (1)
+
+
+
 // type definitions for the specific machine
 
 #define MICROPY_MAKE_POINTER_CALLABLE(p) ((void*)((mp_uint_t)(p) | 1))
@@ -87,12 +103,23 @@ typedef long off_t;
 
 #define MP_PLAT_PRINT_STRN(str, len) mp_hal_stdout_tx_strn_cooked(str, len)
 
+// Map the pin names to their numbers (identity for now)
+typedef const struct efm_pin_t * mp_hal_pin_obj_t;
+#define mp_hal_pin_obj_t mp_hal_pin_obj_t
+#define mp_hal_get_pin_obj(pin) (pin)
+#define mp_hal_pin_name(p) (p)
+#define MP_HAL_PIN_FMT "%u"
+
 // extra built in names to add to the global namespace
-extern const struct _mp_obj_module_t mp_module_gpio;
+extern const struct _mp_obj_module_t uos_module;
+extern const struct _mp_obj_module_t machine_module;
 
 #define MICROPY_PORT_BUILTINS \
     { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&mp_builtin_open_obj) }, \
-    { MP_ROM_QSTR(MP_QSTR_gpio), (mp_obj_t) &mp_module_gpio }, \
+
+#define MICROPY_PORT_BUILTIN_MODULES \
+    { MP_ROM_QSTR(MP_QSTR_uos), MP_ROM_PTR(&uos_module) }, \
+    { MP_ROM_QSTR(MP_QSTR_machine), MP_ROM_PTR(&machine_module) }, \
 
 // We need to provide a declaration/definition of alloca()
 #include <alloca.h>

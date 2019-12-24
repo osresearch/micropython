@@ -68,6 +68,7 @@ SRC_C = \
 	main.c \
 	uart_core.c \
 	gpio.c \
+	modmachine.c \
 	radio.c \
 	lib/utils/printf.c \
 	lib/utils/stdout_helpers.c \
@@ -76,6 +77,13 @@ SRC_C = \
 	lib/mp-readline/readline.c \
 	lib/utils/sys_stdio_mphal.c \
 	lib/utils/interrupt_char.c \
+	moduos.c \
+	extmod/vfs.c \
+	extmod/vfs_reader.c \
+	extmod/modubinascii.c \
+	extmod/machine_spi.c \
+	extmod/machine_mem.c \
+	extmod/machine_pin.c \
 
 # Scan all of the source files for QSTR
 SRC_QSTR += $(SRC_C)

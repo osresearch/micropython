@@ -70,6 +70,7 @@
 
 // Allow VFS access to the flash chip
 #define MICROPY_PY_MACHINE_SPI      (1)
+#define MICROPY_PY_MACHINE_SPIFLASH (1)
 #define MICROPY_READER_VFS              (MICROPY_VFS)
 #define MICROPY_VFS                     (1)
 // use vfs's functions for import stat and builtin open

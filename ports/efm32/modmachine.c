@@ -33,9 +33,10 @@
 #include "py/objstr.h"
 #include "py/mperrno.h"
 #include "py/mphal.h"
-#include "extmod/machine_spi.h"
 #include "extmod/machine_mem.h"
 #include "extmod/machine_pin.h"
+#include "extmod/machine_spi.h"
+#include "extmod/machine_spiflash.h"
 
 /*
 #include "lib/utils/pyexec.h"
@@ -101,6 +102,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
 
     { MP_ROM_QSTR(MP_QSTR_Pin),                 MP_ROM_PTR(&machine_pin_type) },
     { MP_ROM_QSTR(MP_QSTR_SPI),                 MP_ROM_PTR(&mp_machine_soft_spi_type) },
+    { MP_ROM_QSTR(MP_QSTR_SPIFlash),            MP_ROM_PTR(&mp_machine_spiflash_type) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(machine_module_globals, machine_module_globals_table);

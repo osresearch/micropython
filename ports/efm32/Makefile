@@ -84,7 +84,9 @@ SRC_C = \
 	extmod/machine_mem.c \
 	extmod/machine_pin.c \
 	extmod/machine_spi.c \
+	extmod/machine_spiflash.c \
 	drivers/bus/softspi.c \
+	drivers/memory/spiflash.c \
 
 # Scan all of the source files for QSTR
 SRC_QSTR += $(SRC_C)

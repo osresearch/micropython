@@ -2,6 +2,12 @@
 #define _efm32_mphalport_h_
 
 static inline mp_uint_t mp_hal_ticks_ms(void) { return 0; }
+static inline void mp_hal_delay_us_fast(unsigned us)
+{
+	// should do a real timer
+	for(unsigned i = 0 ; i < us ; i++)
+		__asm__("nop");
+}
 
 // we need to figure out how to interrupt the REPL
 static inline void mp_hal_set_interrupt_char(char c) { }

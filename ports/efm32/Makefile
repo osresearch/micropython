@@ -67,7 +67,7 @@ endif
 SRC_C = \
 	main.c \
 	uart_core.c \
-	gpio.c \
+	pin.c \
 	modmachine.c \
 	radio.c \
 	lib/utils/printf.c \
@@ -81,9 +81,10 @@ SRC_C = \
 	extmod/vfs.c \
 	extmod/vfs_reader.c \
 	extmod/modubinascii.c \
-	extmod/machine_spi.c \
 	extmod/machine_mem.c \
 	extmod/machine_pin.c \
+	extmod/machine_spi.c \
+	drivers/bus/softspi.c \
 
 # Scan all of the source files for QSTR
 SRC_QSTR += $(SRC_C)

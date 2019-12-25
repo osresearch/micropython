@@ -47,7 +47,7 @@
 #define MICROPY_PY_BUILTINS_STR_COUNT (0)
 #define MICROPY_PY_BUILTINS_STR_OP_MODULO (1)
 #define MICROPY_PY___FILE__         (0)
-#define MICROPY_PY_GC               (0)
+#define MICROPY_PY_GC               (1)
 #define MICROPY_PY_ARRAY            (1)
 #define MICROPY_PY_ARRAY_SLICE_ASSIGN   (1)
 #define MICROPY_PY_ATTRTUPLE        (0)

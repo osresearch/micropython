@@ -39,7 +39,6 @@ STATIC mp_obj_t mp_machine_spiflash_make_new(const mp_obj_type_t *type, size_t n
 {
     //mp_arg_check_num(n_args, n_kw, 1, MP_OBJ_FUN_ARGS_MAX, true);
 
-printf("n_args=%d\n", n_args);
 /*
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_cs, MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
@@ -59,11 +58,8 @@ printf("n_args=%d\n", n_args);
     if (cs_obj == MP_OBJ_NULL || spi_obj == MP_OBJ_NULL)
 	mp_raise_ValueError("cs and spi must be specified");
 
-printf("cs=%p spi=%p %p\n", cs_obj, spi_obj, MP_OBJ_TO_PTR(spi_obj));
-
     // create new object
     mp_machine_spiflash_obj_t *self = m_new_obj(mp_machine_spiflash_obj_t);
-printf("self=%p\n", self);
     self->base.type = &mp_machine_spiflash_type;
 
     // set parameters
@@ -76,9 +72,7 @@ printf("self=%p\n", self);
     self->spi_flash.config = &self->spi_flash_config;
    
     // initialize it
-printf("init\n");
     mp_spiflash_init(&self->spi_flash);
-printf("init done!\n");
 
     return MP_OBJ_FROM_PTR(self);
 }

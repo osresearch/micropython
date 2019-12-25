@@ -2,10 +2,10 @@ from machine import Pin, SPI, SPIFlash
 
 class FlashBdev:
 
-    SEC_SIZE = 4096
-    RESERVED_SECS = 1
+    SEC_SHIFT = 12 # 4096 bytes per sector
+    SEC_SIZE = 1 << SEC_SHIFT
     START_SEC = 0
-    NUM_BLK = 0x100000 >> 12
+    NUM_BLK = 0x100000 >> SEC_SHIFT
 
     def __init__(self, blocks=NUM_BLK):
         self.blocks = blocks
@@ -20,7 +20,7 @@ class FlashBdev:
 
     def readblocks(self, n, buf, off=0):
         #print("readblocks(%s, %x(%d), %d)" % (n, id(buf), len(buf), off))
-        self.flash.read((n + self.START_SEC) * self.SEC_SIZE + off, buf)
+        self.flash.read(((n + self.START_SEC) << self.SEC_SHIFT) + off, buf)
 
     def writeblocks(self, n, buf, off=None):
         #print("writeblocks(%s, %x(%d), %d)" % (n, id(buf), len(buf), off))
@@ -28,7 +28,7 @@ class FlashBdev:
         if off is None:
             self.flash.erase(n + self.START_SEC)
             off = 0
-        self.flash.write((n + self.START_SEC) * self.SEC_SIZE + off, buf)
+        self.flash.write(((n + self.START_SEC) << self.SEC_SHIFT) + off, buf)
 
     def ioctl(self, op, arg):
         #print("ioctl(%d, %r)" % (op, arg))

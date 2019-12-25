@@ -78,8 +78,6 @@ SRC_C = \
 	lib/utils/sys_stdio_mphal.c \
 	lib/utils/interrupt_char.c \
 	moduos.c \
-	extmod/vfs.c \
-	extmod/vfs_reader.c \
 	extmod/modubinascii.c \
 	extmod/machine_mem.c \
 	extmod/machine_pin.c \
@@ -87,6 +85,24 @@ SRC_C = \
 	extmod/machine_spiflash.c \
 	drivers/bus/softspi.c \
 	drivers/memory/spiflash.c \
+	extmod/vfs.c \
+	extmod/vfs_reader.c \
+	extmod/vfs_blockdev.c \
+	extmod/vfs_lfs.c \
+	lib/littlefs/lfs2.c \
+	lib/littlefs/lfs2_util.c \
+
+NO=\
+	extmod/vfs_lfsx.c \
+	extmod/vfs_lfsx_file.c \
+
+NO=\
+	extmod/vfs_fat.c \
+	extmod/vfs_fat_file.c \
+	extmod/vfs_fat_diskio.c \
+	lib/oofatfs/ff.c \
+	lib/oofatfs/ffunicode.c \
+	lib/timeutils/timeutils.c \
 
 # Scan all of the source files for QSTR
 SRC_QSTR += $(SRC_C)
@@ -107,6 +123,9 @@ OBJ = $(PY_CORE_O) \
 	$(addprefix $(BUILD)/, $(SRC_C:.c=.o)) \
 	$(addprefix $(BUILD)/, $(LIB_C:.c=.o)) \
 	$(BUILD)/frozen_mpy.o \
+
+CFLAGS += $(CFLAGS_MOD)
+CFLAGS += -DLFS2_NO_MALLOC -DLFS2_NO_DEBUG -DLFS2_NO_WARN -DLFS2_NO_ERROR -DLFS2_NO_ASSERT
 
 ifeq ($(CROSS), 1)
 all: $(BUILD)/firmware.dfu

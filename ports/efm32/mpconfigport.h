@@ -73,6 +73,28 @@
 #define MICROPY_PY_MACHINE_SPIFLASH (1)
 #define MICROPY_READER_VFS              (MICROPY_VFS)
 #define MICROPY_VFS                     (1)
+#define MICROPY_VFS_FAT                 (0)
+#define MICROPY_VFS_LFS1                (0)
+#define MICROPY_VFS_LFS2                (1)
+
+#if MICROPY_VFS_FAT
+#define MICROPY_FATFS_ENABLE_LFN       (1)
+#define MICROPY_FATFS_RPATH            (2)
+//#define MICROPY_FATFS_MIN_SS           (4096)
+#define MICROPY_FATFS_MAX_SS           (4096)
+#define MICROPY_FATFS_NORTC            (1)
+#define MICROPY_FATFS_LFN_CODE_PAGE    437 /* 1=SFN/ANSI 437=LFN/U.S.(OEM) */
+#define mp_type_fileio mp_type_vfs_fat_fileio
+#define mp_type_textio mp_type_vfs_fat_textio
+#elif MICROPY_VFS_LFS1
+#define mp_type_fileio mp_type_vfs_lfs1_fileio
+#define mp_type_textio mp_type_vfs_lfs1_textio
+#elif MICROPY_VFS_LFS2
+#define mp_type_fileio mp_type_vfs_lfs2_fileio
+#define mp_type_textio mp_type_vfs_lfs2_textio
+#endif
+
+
 // use vfs's functions for import stat and builtin open
 #define mp_import_stat mp_vfs_import_stat
 #define mp_builtin_open mp_vfs_open

@@ -26,18 +26,18 @@ for storing OTA images or other things.
 * The radio module can send and receive 802.15.4 packets
 * Frozen modules work -- add files into the `modules` directory to bundle them into the image
 * ZigBee messages are parsed in Python [`modules/IEEE802154.py`](modules/IEEE802154.py)
-* GPIO (partially; need to adapt the real MicroPython pins)
+* GPIO using the `from machine import Pin` library
 * Joining the coordinator seems to work; lots of messages are acked and sent
+* External SPI flash
+* Self programming
 
 ## Not yet supported
 * Interrupting the REPL
+* Over the air updates to the modules
 * TX UART FIFO so that the CPU isn't busywaiting on the serial port
-* Over the air updates to the frozen modules
 * Zigbee OTA
 * Bluetooth LE
 * Thread?
-* External SPI flash
-* Self programming
 * PWM
 
 # No Warranty!
@@ -56,14 +56,19 @@ for communication.  To build in this directory:
 
 	make
 
+![EFR32 QFN pinout](efr32-pins.png)
+
 This version of the build should work out-of-the-box on a Ikea 10w LED dimmer (and
 anything similar), and will give you a MicroPython REPL on UART1 at 115200
-baud (output on PB14, input on PB15).
+baud (output on PC10, input on PC11).  For the small On/Off remote, the UART is
+routed to a port on the bottom of the case and uses TX on PB15 and RX on PB14.
+There is a compile time define in `uart_core.c`.
 
-The high-current LED driver is on pin PB13.
+The high-current LED driver is on pin PB13 for the 10W.  The PWm driver is not yet supported.
 
 SWD is on PF1(SWCLK) and PF0(SWD).  Installation is easiest with OpenOCD or
-similar SWD probe.
+similar SWD probe.  The [Teensy CMSIS-DAP](https://github.com/osresearch/arduino-cmsis-dap)
+is an easy way if you already have a 
 
 # RAIL
 

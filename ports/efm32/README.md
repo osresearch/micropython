@@ -72,7 +72,28 @@ For the 5-way remote, the known pins are 0 for the reset button on the bottom (w
 
 SWD is on PF1(SWCLK) and PF0(SWD).  Installation is easiest with OpenOCD or
 similar SWD probe.  The [Teensy CMSIS-DAP](https://github.com/osresearch/arduino-cmsis-dap)
-is an easy way if you already have a 
+is an easy way if you already have a Teensy microcontroller around.
+
+To setup the OpenOCD server, in one window run:
+```
+sudo openocd  -f interface/cmsis-dap.cfg -f board/efm32.cfg
+```
+
+and in another window:
+```
+gdb-multiarch \
+	-iex 'target remote localhost:3333 ; display /i $pc' \
+	build/firmware.elf
+```
+
+Once in `gdb` it is possible to build, flash, debug, and reboot the device:
+
+* `make -j8` to build a firmware
+* `load` to send it to the target,
+* `monitor reset halt` to reset and hold the device in reset
+* `c` to restart the execution
+* `br HardFault_Handler` to add a breakpoint when the hard fault handler is called
+
 
 # RAIL
 

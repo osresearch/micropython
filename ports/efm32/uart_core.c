@@ -5,6 +5,9 @@
 /*
  * Core UART functions to implement for a port
  * Gecko_SDK/platform/Device/SiliconLabs/EFR32MG1P/Include/efm32mg1p_usart.h
+ *
+ * To find the "Location" values, look in gecko_sdk/include/efr32mg1p_af_pins.h
+ *
  */
 
 #if MICROPY_MIN_USE_CORTEX_CPU
@@ -14,12 +17,25 @@
 
 #define USART USART1
 #define USART_CLOCK  cmuClock_USART1
+
+#if 0
+// Ikea 10W LED dimmer
 #define USART_TX_PORT gpioPortC
 #define USART_TX_PIN 10
 #define USART_TX_LOCATION 15 // ? found in af_pins.h somehow
 #define USART_RX_PORT gpioPortC
 #define USART_RX_PIN 11
 #define USART_RX_LOCATION 15 // ?
+#else
+// Ikea On/Off switch, which doesn't use the Gecko board
+// There are dedicated TX/RX pins on the underside of the case.
+#define USART_TX_PORT gpioPortB
+#define USART_TX_PIN 15
+#define USART_TX_LOCATION 10 // ? found in af_pins.h somehow
+#define USART_RX_PORT gpioPortB
+#define USART_RX_PIN 14
+#define USART_RX_LOCATION 8 // ?
+#endif
 
 #endif
 

@@ -74,7 +74,9 @@ SWD is on PF1(SWCLK) and PF0(SWD).  Installation is easiest with OpenOCD or
 similar SWD probe.  The [Teensy CMSIS-DAP](https://github.com/osresearch/arduino-cmsis-dap)
 is an easy way if you already have a Teensy microcontroller around.
 
+The stock OpenOCD with Ubuntu doesn't work with the CSMSIS-DAP, so build from [github source](https://github.com/ntfreak/openocd) and be sure to run `./configure --enable-cmsis-dap`.
 To setup the OpenOCD server, in one window run:
+
 ```
 sudo openocd  -f interface/cmsis-dap.cfg -f board/efm32.cfg
 ```

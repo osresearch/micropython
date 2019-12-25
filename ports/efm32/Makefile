@@ -180,6 +180,15 @@ run:
 	sleep 1
 	reset
 
+openocd:
+	openocd -f interface/cmsis-dap.cfg -f board/efm32.cfg
+
+gdb: $(BUILD)/firmware.elf
+	gdb-multiarch \
+		-iex 'target remote localhost:3333' \
+		-iex 'display /i $pc' \
+		$<
+
 test: $(BUILD)/firmware.elf
 	$(Q)/bin/echo -e "print('hello world!', list(x+1 for x in range(10)), end='eol\\\\n')\\r\\n\\x04" | $(BUILD)/firmware.elf | tail -n2 | grep "^hello world! \\[1, 2, 3, 4, 5, 6, 7, 8, 9, 10\\]eol"
 

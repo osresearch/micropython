@@ -31,87 +31,6 @@ void do_str(const char *src, mp_parse_input_kind_t input_kind) {
 }
 #endif
 
-#ifdef MICROPY_EMBER
-/*
- * EFM32 port that co-exists with Ember.
- * We don't have the source to Ember, so this is patched into the existing
- * image and there are fixups for the real calls.  It is a bit of a mess...
- *
- * Complications:
- * - Addresses are all wrong; we have to fix them up
- * - Our BSS does not play well with their BSS.
- * - We should have no RW data since we don't have a data segment.
- * - Our Heap (and BSS) must be allocated with their malloc.
- * - We could run as a task, or we can run as a hook in their mainloop.
- *
- * We have an agreed upon location to stash our heap and bss
- */
-extern void mp_hal_stdout_init(void);
-extern void mp_hal_stdout_tx_str(const char * c, unsigned len);
-extern int mp_hal_stdin_rx_chr_nonblocking(void);
-static char * stack_top;
-#if MICROPY_ENABLE_GC
-static char heap[2048];
-#endif
-
-void micropython_setup(void)
-{
-    mp_hal_stdout_init();
-    mp_hal_stdout_tx_str("uPy!", 4);
-
-    int stack_dummy;
-    stack_top = (char*)&stack_dummy;
-
-    #if MICROPY_ENABLE_GC
-    gc_init(heap, heap + sizeof(heap));
-    #endif
-    mp_init();
-
-    //pyexec_event_repl_init();
-}
-
-void micropython_loop(void)
-{
-    pyexec_frozen_module("loop.py");
-/*
-    int c = mp_hal_stdin_rx_chr_nonblocking();
-    if (c < 0)
-        return;
-
-    if (pyexec_event_repl_process_char(c) == 0)
-        return;
-
-    // should never each here
-    mp_deinit();
-*/
-}
-
-// Pointers to the setup and loop function are stored
-// at a fixed address, controlled by the linker script.
-uint32_t setup_func
-__attribute__((__section__(".setup")))
-= 1 + (uint32_t) micropython_setup;
-
-uint32_t loop_func
-__attribute__((__section__(".loop")))
-= 1 + (uint32_t) micropython_loop;
-
-#if 0
-// Fixup the real stack pointer so that we have room for
-// our heap and bss.
-const uint32_t new_ikea_stack __attribute__((__section__(".stackpointer"))) = 0x200041c0 - 2500;
-
-/* hack to include the Ikea firmware */
-__asm__ (
-".section .firmware\n"
-".incbin \"led10w-partial.bin\"\n"
-".org 0x4000\n"
-".data 0xbeef\n"
-);
-#endif
-
-
-#else
 /*
  * Stand-alone micropython
  */
@@ -143,37 +62,42 @@ int main(int argc, char **argv)
 	CMU_ClockEnable(cmuClock_RTCC, true);
 
 
-    int stack_dummy;
-    stack_top = (char*)&stack_dummy;
-
 
     extern void mp_hal_stdout_init(void);
     extern char mp_hal_stdin_rx_chr(void);
     mp_hal_stdout_init();
+    int stack_dummy;
 
-    #if MICROPY_ENABLE_GC
+soft_reset:
+    stack_top = (char*)&stack_dummy;
+
     gc_init(heap, heap + sizeof(heap));
-    #endif
     mp_init();
-    #if MICROPY_ENABLE_COMPILER
-    #if MICROPY_REPL_EVENT_DRIVEN
-    pyexec_event_repl_init();
+
+    // run boot-up scripts
+    pyexec_frozen_module("__init__.py");
+    pyexec_file_if_exists("boot.py");
+    if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL) {
+        pyexec_file_if_exists("main.py");
+    }
+
     for (;;) {
-        int c = mp_hal_stdin_rx_chr();
-        if (pyexec_event_repl_process_char(c)) {
-            break;
+        if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
+            if (pyexec_raw_repl() != 0) {
+                break;
+            }
+        } else {
+            if (pyexec_friendly_repl() != 0) {
+                break;
+            }
         }
     }
-    #else
-    pyexec_frozen_module("__init__.py");
-    pyexec_friendly_repl();
-    #endif
-    //do_str("print('hello world!', list(x+1 for x in range(10)), end='eol\\n')", MP_PARSE_SINGLE_INPUT);
-    //do_str("for i in range(10):\r\n  print(i)", MP_PARSE_FILE_INPUT);
-    #else
-    pyexec_frozen_module("frozentest.py");
-    #endif
+
+    gc_sweep_all();
+    printf("MPY: soft reboot\n");
     mp_deinit();
+    goto soft_reset;
+
     return 0;
 }
 
@@ -184,7 +108,6 @@ void _start(void)
 }
 #endif
 
-#endif
 
 void gc_collect(void) {
     // WARNING: This gc_collect implementation doesn't try to get root

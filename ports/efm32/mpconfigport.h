@@ -67,6 +67,7 @@
 #define MICROPY_CPYTHON_COMPAT      (0)
 #define MICROPY_LONGINT_IMPL        (MICROPY_LONGINT_IMPL_NONE)
 #define MICROPY_FLOAT_IMPL          (MICROPY_FLOAT_IMPL_NONE)
+#define MICROPY_KBD_EXCEPTION       (1)
 
 // Allow VFS access to the flash chip
 #define MICROPY_PY_MACHINE_SPI      (1)

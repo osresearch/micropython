@@ -9,8 +9,7 @@ static inline void mp_hal_delay_us_fast(unsigned us)
 		__asm__("nop");
 }
 
-// we need to figure out how to interrupt the REPL
-static inline void mp_hal_set_interrupt_char(char c) { }
+void mp_hal_set_interrupt_char(char c);
 
 // gpio functions
 extern mp_hal_pin_obj_t mp_hal_pin_lookup(unsigned pin_id);

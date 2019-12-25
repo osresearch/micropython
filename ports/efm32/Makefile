@@ -92,18 +92,6 @@ SRC_C = \
 	lib/littlefs/lfs2.c \
 	lib/littlefs/lfs2_util.c \
 
-NO=\
-	extmod/vfs_lfsx.c \
-	extmod/vfs_lfsx_file.c \
-
-NO=\
-	extmod/vfs_fat.c \
-	extmod/vfs_fat_file.c \
-	extmod/vfs_fat_diskio.c \
-	lib/oofatfs/ff.c \
-	lib/oofatfs/ffunicode.c \
-	lib/timeutils/timeutils.c \
-
 # Scan all of the source files for QSTR
 SRC_QSTR += $(SRC_C)
 
@@ -136,8 +124,12 @@ endif
 # Override the default args to mpy-tool so that the frozen modules
 # will have the correct configuration. All the .py files in modules/
 # are linked into the firmware.
-MPY_TOOL = $(PYTHON) $(TOP)/tools/mpy-tool.py -mlongint-impl=none
+MPY_TOOL_BIN = $(TOP)/tools/mpy-tool.py
+MPY_TOOL = $(PYTHON) $(MPY_TOOL_BIN) -mlongint-impl=none
 FROZEN_MPY_DIR = modules
+
+mpy-cross: $(MPY_TOOL_BIN)
+	$(MAKE) -C ../../mpy-cross
 
 $(BUILD)/firmware.elf: $(OBJ)
 	$(ECHO) "LINK $@"
@@ -146,22 +138,6 @@ $(BUILD)/firmware.elf: $(OBJ)
 
 $(BUILD)/firmware.bin: $(BUILD)/firmware.elf
 	$(Q)$(OBJCOPY) -O binary -j .isr_vector -j .text -j .data $^ $(BUILD)/firmware.bin
-
-$(BUILD)/led10w.bin: $(BUILD)/firmware.bin
-	cp "$<" "$@"
-	dd if="$(HOME)/ikea/led10w.bin" of="$@" bs=1024 count=196 conv=notrunc
-	# fixup the stack pointer to make room for our bss
-	perl -e 'print pack("V", 0x200041c0 - 0x800)' \
-		| dd of="$@" bs=1 seek=16384 conv=notrunc # 0x4000
-	# jump to microptyhon_setup in place of the nvram check
-	# ldr r0, [pc,#4]; ldr r0, [r0]; blx r0; bx lr ; ADDRESS
-	perl -e 'print pack("H*V", "0148006800477047", 0x31000)' \
-		| dd of="$@" bs=1 seek=60260 conv=notrunc # 0xeb64
-no:
-	# jump to micropython_loop in the serial buffer loop
-	# ldr r0, [pc,#4]; ldr r0, [r0]; bx r0; bx lr ; ADDRESS
-	perl -e 'print pack("H*V", "0148006800477047", 0x31004)' \
-		| dd of="$@" bs=1 seek=34436 conv=notrunc # 0x8684
 
 $(BUILD)/firmware.dfu: $(BUILD)/firmware.bin
 	$(ECHO) "Create $@"

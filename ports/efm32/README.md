@@ -58,13 +58,17 @@ for communication.  To build in this directory:
 
 ![EFR32 QFN pinout](efr32-pins.png)
 
-This version of the build should work out-of-the-box on a Ikea 10w LED dimmer (and
-anything similar), and will give you a MicroPython REPL on UART1 at 115200
-baud (output on PC10, input on PC11).  For the small On/Off remote, the UART is
-routed to a port on the bottom of the case and uses TX on PB15 and RX on PB14.
-There is a compile time define in `uart_core.c`.
+This version of the build should work out-of-the-box on a Ikea 10w LED
+dimmer (and anything similar), and will give you a MicroPython REPL on
+UART1 at 115200 baud (output on PC10, input on PC11).  For the small
+On/Off remote and the 5-way remote, the UART is routed to a port on
+the bottom of the case and uses TX on PB15 and RX on PB14.  There is a
+compile time define in `uart_core.c`.
 
-The high-current LED driver is on pin PB13 for the 10W.  The PWm driver is not yet supported.
+The high-current LED driver is on pin PB13 for the 10W.  The PWM driver
+is not yet supported.
+
+For the 5-way remote, the known pins are 0 for the reset button on the bottom (with an external pullup) and 3 for the red LED.
 
 SWD is on PF1(SWCLK) and PF0(SWD).  Installation is easiest with OpenOCD or
 similar SWD probe.  The [Teensy CMSIS-DAP](https://github.com/osresearch/arduino-cmsis-dap)

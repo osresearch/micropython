@@ -69,7 +69,8 @@ printf("self=%p\n", self);
     // set parameters
     self->spi_flash_config.bus_kind = MP_SPIFLASH_BUS_SPI;
     self->spi_flash_config.bus.u_spi.cs = cs_obj;
-    self->spi_flash_config.bus.u_spi.data = (void*) 0x200006b4; //MP_OBJ_TO_PTR(spi_obj);
+    //self->spi_flash_config.bus.u_spi.data = (void*) 0x20000734; //MP_OBJ_TO_PTR(spi_obj);
+    self->spi_flash_config.bus.u_spi.data = (void*)(((uintptr_t) spi_obj) + 4);
     self->spi_flash_config.bus.u_spi.proto = &mp_soft_spi_proto;
     self->spi_flash_config.cache = NULL; // for now
     self->spi_flash.config = &self->spi_flash_config;
@@ -82,20 +83,18 @@ printf("init done!\n");
     return MP_OBJ_FROM_PTR(self);
 }
 
-STATIC mp_obj_t mp_machine_spiflash_read(mp_obj_t self_obj, mp_obj_t addr_obj, mp_obj_t len_obj)
+STATIC mp_obj_t mp_machine_spiflash_read(mp_obj_t self_obj, mp_obj_t addr_obj, mp_obj_t buf_obj)
 {
     mp_machine_spiflash_obj_t * self = MP_OBJ_TO_PTR(self_obj);
-    const unsigned len = mp_obj_get_int(len_obj);
     const unsigned addr = mp_obj_get_int(addr_obj);
 
-    vstr_t vstr;
-    vstr_init_len(&vstr, len);
+    mp_buffer_info_t buf;
+    mp_get_buffer_raise(buf_obj, &buf, MP_BUFFER_READ);
+    const unsigned len = buf.len;
 
-    memset(vstr.buf, 0, len);
+    mp_spiflash_read(&self->spi_flash, addr, len, buf.buf);
 
-    mp_spiflash_read(&self->spi_flash, addr, len, (uint8_t*) vstr.buf);
-
-    return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr);
+    return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_3(mp_machine_spiflash_read_obj, mp_machine_spiflash_read);
 
@@ -113,6 +112,17 @@ STATIC mp_obj_t mp_machine_spiflash_write(mp_obj_t self_obj, mp_obj_t addr_obj, 
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_3(mp_machine_spiflash_write_obj, mp_machine_spiflash_write);
+
+STATIC mp_obj_t mp_machine_spiflash_erase(mp_obj_t self_obj, mp_obj_t addr_obj)
+{
+    mp_machine_spiflash_obj_t * self = MP_OBJ_TO_PTR(self_obj);
+    const unsigned addr = mp_obj_get_int(addr_obj);
+
+    mp_spiflash_erase_block(&self->spi_flash, addr);
+
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_2(mp_machine_spiflash_erase_obj, mp_machine_spiflash_erase);
 
 #if 0
 STATIC mp_obj_t mp_machine_spi_readinto(size_t n_args, const mp_obj_t *args) {
@@ -149,6 +159,7 @@ MP_DEFINE_CONST_FUN_OBJ_3(mp_machine_spi_write_readinto_obj, mp_machine_spi_writ
 STATIC const mp_rom_map_elem_t machine_spiflash_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&mp_machine_spiflash_read_obj) },
     { MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&mp_machine_spiflash_write_obj) },
+    { MP_ROM_QSTR(MP_QSTR_erase), MP_ROM_PTR(&mp_machine_spiflash_erase_obj) },
 /*
     { MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&mp_machine_spi_readinto_obj) },
     { MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&mp_machine_spi_write_obj) },

@@ -1,4 +1,5 @@
 from machine import Pin, SPI, SPIFlash
+from ubinascii import hexlify
 
 class FlashBdev:
 
@@ -9,14 +10,25 @@ class FlashBdev:
 
     def __init__(self, blocks=NUM_BLK):
         self.blocks = blocks
-	self.flash = SPIFlash(
-		Pin(12), # cs
-		SPI(
-			sck=Pin(13),
-			miso=Pin(14),
-			mosi=Pin(15),
-		),
+        self.cs = Pin(12)
+	self.cs.on()
+
+        self.spi = SPI(
+		sck=Pin(13),
+		miso=Pin(14),
+		mosi=Pin(15),
 	)
+
+	# These are the pins for the SiLabs gecko board.
+	# Ikea matched the same pinout when they laid out the On/Off switch
+	self.flash = SPIFlash(self.cs, self.spi)
+
+	# try to read the chip id
+	self.cs.off()
+	self.spi.write(b'\x9f')
+	print("SPI device ID:", hexlify(self.spi.read(3)))
+	self.cs.on()
+
 
     def readblocks(self, n, buf, off=0):
         #print("readblocks(%s, %x(%d), %d)" % (n, id(buf), len(buf), off))

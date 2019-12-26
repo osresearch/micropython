@@ -43,3 +43,5 @@ user.props
 # Generated rst files
 ######################
 genrst/
+tags
+.*.swp

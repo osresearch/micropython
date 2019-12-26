@@ -106,7 +106,7 @@ static void rail_callback_rfready(RAIL_Handle_t rail)
 	radio_state = RADIO_IDLE;
 }
 
-#define MAX_PKTS 8
+#define MAX_PKTS 4
 static volatile unsigned rx_buffer_write;
 static volatile unsigned rx_buffer_read;
 static uint8_t rx_buffers[MAX_PKTS][MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];

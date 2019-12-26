@@ -1,3 +1,30 @@
+/*
+ * This file is part of the MicroPython project, http://micropython.org/
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014 Damien P. George
+ * Copyright (c) 2019 Trammell Hudson
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,9 +39,6 @@
 #include "em_cmu.h"
 #include "em_emu.h"
 
-#undef MICROPY_EMBER
-
-#if MICROPY_ENABLE_COMPILER
 void do_str(const char *src, mp_parse_input_kind_t input_kind) {
     nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0) {
@@ -29,7 +53,6 @@ void do_str(const char *src, mp_parse_input_kind_t input_kind) {
         mp_obj_print_exception(&mp_plat_print, (mp_obj_t)nlr.ret_val);
     }
 }
-#endif
 
 /*
  * Stand-alone micropython
@@ -101,12 +124,10 @@ soft_reset:
     return 0;
 }
 
-#ifdef MICROPY_MIN_USE_CORTEX_CPU
 void _start(void)
 {
 	main(0, NULL);
 }
-#endif
 
 
 void gc_collect(void) {
@@ -147,6 +168,8 @@ void SysTick_Handler     (void) { printf("%s\n", __func__); while(1); }
 /*
  * During a hard fault r0, r1, r2, r3, r12, lr, pc, psr are
  * pushed onto the stack. the other registers are preserved.
+ *
+ * Really should print the faulting PC
  */
 void HardFault_Handler   (void) __attribute__((__naked__));
 void HardFault_Handler   (void)

@@ -112,7 +112,9 @@ STATIC mp_obj_t mp_machine_spiflash_erase(mp_obj_t self_obj, mp_obj_t addr_obj)
     mp_machine_spiflash_obj_t * self = MP_OBJ_TO_PTR(self_obj);
     const unsigned addr = mp_obj_get_int(addr_obj);
 
-    mp_spiflash_erase_block(&self->spi_flash, addr);
+    int ret = mp_spiflash_erase_block(&self->spi_flash, addr);
+    if (ret != 0)
+	mp_raise_msg(&mp_type_RuntimeError, "erase block failed");
 
     return mp_const_none;
 }

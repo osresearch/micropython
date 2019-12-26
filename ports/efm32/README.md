@@ -4,7 +4,8 @@
 
 This port of Micropython runs in the Gecko boards used in the Ikea
 Tradfri lighting hardware and should be portable to other Silican Labs
-EFM32 boards.
+EFM32 boards.  This is the underlying hardware firmware, for the
+ZigBee software layer, see [osresearch/ZbPy](https://github.com/osresearch/ZbPy).
 
 The one used for most of the testing is the LED 10W dimmer shown above,
 which has the Gecko board as a module inside the case as well as easy to
@@ -12,6 +13,8 @@ access SWD pins for reprogramming.  The console pins require soldering
 extra jumpers.
 
 # EFM32 features
+
+![EFR32 QFN pinout](efr32-pins.png)
 
 Datasheet for the [EFR32MG1P132G1](https://www.silabs.com/documents/public/data-sheets/efr32mg1-datasheet.pdf)
 used in the Ikea devices.  QFN48 package, 256 KB of internal flash, 32 KB of internal RAM, external SPI flash
@@ -56,8 +59,6 @@ for communication.  To build in this directory:
 
 	make
 
-![EFR32 QFN pinout](efr32-pins.png)
-
 This version of the build should work out-of-the-box on a Ikea 10w LED
 dimmer (and anything similar), and will give you a MicroPython REPL on
 UART1 at 115200 baud (output on PC10, input on PC11).  For the small
@@ -75,13 +76,14 @@ similar SWD probe.  The [Teensy CMSIS-DAP](https://github.com/osresearch/arduino
 is an easy way if you already have a Teensy microcontroller around.
 
 The stock OpenOCD with Ubuntu doesn't work with the CSMSIS-DAP, so build from [github source](https://github.com/ntfreak/openocd) and be sure to run `./configure --enable-cmsis-dap`.
-To setup the OpenOCD server, in one window run:
+To setup the OpenOCD server, in one window run `make openocd`:
 
 ```
 sudo openocd  -f interface/cmsis-dap.cfg -f board/efm32.cfg
 ```
 
-and in another window:
+and in another window run `make gdb`:
+
 ```
 gdb-multiarch \
 	-iex 'target remote localhost:3333 ; display /i $pc' \

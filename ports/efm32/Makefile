@@ -69,6 +69,7 @@ SRC_C = \
 	uart_core.c \
 	pin.c \
 	modmachine.c \
+	modcrypto.c \
 	radio.c \
 	lib/utils/printf.c \
 	lib/utils/stdout_helpers.c \
@@ -106,6 +107,7 @@ LIB_C += \
 	../emlib/src/em_system.c \
 	../emlib/src/em_core.c \
 	../emlib/src/em_emu.c \
+	../emlib/src/em_crypto.c \
 
 OBJ = $(PY_CORE_O) \
 	$(addprefix $(BUILD)/, $(SRC_C:.c=.o)) \

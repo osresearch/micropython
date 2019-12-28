@@ -38,18 +38,6 @@
 #include "extmod/machine_spi.h"
 #include "extmod/machine_spiflash.h"
 
-/*
-#include "lib/utils/pyexec.h"
-#include "pin.h"
-#include "timer.h"
-#include "usb.h"
-#include "rtc.h"
-#include "i2c.h"
-#include "spi.h"
-#include "uart.h"
-#include "wdt.h"
-*/
-
 
 // need to implement these
 #if 0
@@ -88,6 +76,8 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *args) {
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_deepsleep_obj, 0, 1, machine_deepsleep);
 #endif
 
+extern const mp_obj_module_t mp_module_crypto;
+
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_umachine) },
 /*
@@ -100,6 +90,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_mem16),               MP_ROM_PTR(&machine_mem16_obj) },
     { MP_ROM_QSTR(MP_QSTR_mem32),               MP_ROM_PTR(&machine_mem32_obj) },
 
+    { MP_ROM_QSTR(MP_QSTR_Crypto),              MP_ROM_PTR(&mp_module_crypto) },
     { MP_ROM_QSTR(MP_QSTR_Pin),                 MP_ROM_PTR(&machine_pin_type) },
     { MP_ROM_QSTR(MP_QSTR_SPI),                 MP_ROM_PTR(&mp_machine_soft_spi_type) },
     { MP_ROM_QSTR(MP_QSTR_SPIFlash),            MP_ROM_PTR(&mp_machine_spiflash_type) },

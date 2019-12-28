@@ -84,7 +84,8 @@ int main(int argc, char **argv)
 	/* Turn RTCC clock gate back on to keep RTC time correct */
 	CMU_ClockEnable(cmuClock_RTCC, true);
 
-
+	/* Enable AES clock: otherwise result from AES ops is 0 */
+	CMU_ClockEnable(cmuClock_CRYPTO, true);
 
     extern void mp_hal_stdout_init(void);
     extern char mp_hal_stdin_rx_chr(void);

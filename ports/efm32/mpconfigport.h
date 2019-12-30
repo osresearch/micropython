@@ -60,6 +60,7 @@
 #define MICROPY_PY_STRUCT           (1)
 #define MICROPY_PY_SYS              (1)
 #define MICROPY_PY_SYS_STDFILES     (1)
+#define MICROPY_PY_SYS_STDIO_BUFFER (1)
 #define MICROPY_PY_SYS_EXIT         (1)
 #define MICROPY_PY_MACHINE          (1)
 #define MICROPY_MODULE_FROZEN_MPY   (1)

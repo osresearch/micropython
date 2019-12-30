@@ -1,4 +1,4 @@
-![EFR32 pinout showing SWD, RX/TX, and LED pins](efr32-pinout.jpg)
+![EFR32 pinout showing SWD, RX/TX, and LED pins](images/efr32-annotated.jpg)
 
 # The Micropython port for the Silcon Labs EFM32
 
@@ -14,7 +14,7 @@ extra jumpers.
 
 # EFM32 features
 
-![EFR32 QFN pinout](efr32-pins.png)
+![EFR32 QFN pinout](images/efr32-pins.png)
 
 Datasheet for the [EFR32MG1P132G1](https://www.silabs.com/documents/public/data-sheets/efr32mg1-datasheet.pdf)
 used in the Ikea devices.  QFN48 package, 256 KB of internal flash, 32 KB of internal RAM, external SPI flash

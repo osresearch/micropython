@@ -68,9 +68,12 @@ SRC_C = \
 	main.c \
 	uart_core.c \
 	pin.c \
+	moduos.c \
 	modmachine.c \
 	modcrypto.c \
 	radio.c \
+
+PYLIB_SRC_C = \
 	lib/utils/printf.c \
 	lib/utils/stdout_helpers.c \
 	lib/utils/pyexec.c \
@@ -78,7 +81,8 @@ SRC_C = \
 	lib/mp-readline/readline.c \
 	lib/utils/sys_stdio_mphal.c \
 	lib/utils/interrupt_char.c \
-	moduos.c \
+
+PYMOD_SRC_C = \
 	extmod/modubinascii.c \
 	extmod/machine_mem.c \
 	extmod/machine_pin.c \
@@ -86,6 +90,7 @@ SRC_C = \
 	extmod/machine_spiflash.c \
 	drivers/bus/softspi.c \
 	drivers/memory/spiflash.c \
+	\
 	extmod/vfs.c \
 	extmod/vfs_reader.c \
 	extmod/vfs_blockdev.c \
@@ -93,8 +98,10 @@ SRC_C = \
 	lib/littlefs/lfs2.c \
 	lib/littlefs/lfs2_util.c \
 
-# Scan all of the source files for QSTR
+# Scan all of the source, python libraries and python module files for QSTR
 SRC_QSTR += $(SRC_C)
+SRC_QSTR += $(PYLIB_SRC_C)
+SRC_QSTR += $(PYMOD_SRC_C)
 
 # EMLIB from Silicon Labs for the Gecko boards
 # These are not included in the QSTR scan
@@ -111,6 +118,8 @@ LIB_C += \
 
 OBJ = $(PY_CORE_O) \
 	$(addprefix $(BUILD)/, $(SRC_C:.c=.o)) \
+	$(addprefix $(BUILD)/, $(PYLIB_SRC_C:.c=.o)) \
+	$(addprefix $(BUILD)/, $(PYMOD_SRC_C:.c=.o)) \
 	$(addprefix $(BUILD)/, $(LIB_C:.c=.o)) \
 	$(BUILD)/frozen_mpy.o \
 

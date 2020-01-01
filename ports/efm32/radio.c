@@ -106,7 +106,7 @@ static void rail_callback_rfready(RAIL_Handle_t rail)
 	radio_state = RADIO_IDLE;
 }
 
-#define MAX_PKTS 4
+#define MAX_PKTS 8
 static volatile unsigned rx_buffer_write;
 static volatile unsigned rx_buffer_read;
 static uint8_t rx_buffers[MAX_PKTS][MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
@@ -145,7 +145,10 @@ static void process_packet(RAIL_Handle_t rail)
 		unsigned write_index = rx_buffer_write;
 		uint8_t * rx_buffer = rx_buffers[write_index];
 		RAIL_CopyRxPacket(rx_buffer, &info); // puts the length in byte 0
-		rx_buffer_write = (write_index + 1) % MAX_PKTS;
+		if (write_index == MAX_PKTS - 1)
+			rx_buffer_write = 0;
+		else
+			rx_buffer_write = write_index + 1;
 
 		// cancel the ACK if the sender did not request one
 		// buffer[0] == length
@@ -301,7 +304,10 @@ static mp_obj_t radio_rxbytes_get(void)
 	uint8_t * const rx_buffer = rx_buffers[read_index];
 	buf->len = rx_buffer[0];
 	memcpy(rx_buffer_copy, rx_buffer+1, buf->len);
-	rx_buffer_read = (read_index + 1) % MAX_PKTS;
+	if (read_index == MAX_PKTS - 1)
+		rx_buffer_read = 0;
+	else
+		rx_buffer_read = read_index + 1;
 	CORE_ATOMIC_IRQ_ENABLE();
 
 	return rx_buffer_bytearray;

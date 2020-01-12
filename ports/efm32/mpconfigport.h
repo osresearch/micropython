@@ -156,14 +156,6 @@ extern const struct _mp_obj_module_t machine_module;
 #define MICROPY_HW_BOARD_NAME "gecko"
 #define MICROPY_HW_MCU_NAME "efr32mg1p"
 
-#ifdef __linux__
-#define MICROPY_MIN_USE_STDOUT (1)
-#endif
-
-#ifdef __thumb__
-#define MICROPY_MIN_USE_CORTEX_CPU (1)
-#endif
-
 #define MP_STATE_PORT MP_STATE_VM
 
 #define MICROPY_PORT_ROOT_POINTERS \

@@ -10,14 +10,17 @@
  *
  */
 
-#if MICROPY_MIN_USE_CORTEX_CPU
 #include "em_usart.h"
 #include "em_cmu.h"
 #include "em_gpio.h"
 #include "lib/utils/interrupt_char.h"
 
+// this definition is insufficient; there are places where usart1 is used
 #define USART USART1
 #define USART_CLOCK  cmuClock_USART1
+
+#define CONFIG_RX_IRQ
+#define CONFIG_TX_IRQ
 
 #if 0
 // Ikea 10W LED dimmer
@@ -38,10 +41,8 @@
 #define USART_RX_LOCATION 8 // ?
 #endif
 
-#endif
 
 
-#define CONFIG_RX_IRQ
 
 #ifdef CONFIG_RX_IRQ
 
@@ -56,13 +57,13 @@ void USART1_RX_IRQHandler()
 	if ((USART1->IF & USART_IF_RXDATAV) == 0)
 		return;
 
-	uint8_t c = (uint8_t)USART1->RXDATA;
+	const uint8_t c = (uint8_t)USART1->RXDATA;
 
 	if (mp_interrupt_char == (int) c)
 		mp_keyboard_interrupt();
 
-	uint8_t head = uart_rx_head;
-	uint8_t next_head = (head + 1) & UART_RX_MASK;
+	const uint8_t head = uart_rx_head;
+	const uint8_t next_head = (head + 1) & UART_RX_MASK;
 
 	// drop the character if there is not room
 	if (next_head == uart_rx_tail)
@@ -100,7 +101,7 @@ int mp_hal_stdin_rx_chr(void)
 #ifdef CONFIG_RX_IRQ
 	while(!mp_hal_stdio_poll(MP_STREAM_POLL_RD))
 		;
-	uint8_t tail = uart_rx_tail;
+	const uint8_t tail = uart_rx_tail;
 	c = uart_rx_buf[tail];
 	uart_rx_tail = (tail + 1) % UART_RX_MASK;
 #else
@@ -111,23 +112,67 @@ int mp_hal_stdin_rx_chr(void)
 }
 
 
+#ifdef CONFIG_TX_IRQ
+
+#define UART_TX_MASK 0x3F
+static volatile uint8_t uart_tx_buf[UART_TX_MASK+1];
+static volatile uint8_t uart_tx_head;
+static volatile uint8_t uart_tx_tail;
+
+void USART1_TX_IRQHandler(void)
+{
+	// nothing to do if the queue is empty
+	const uint8_t tail = uart_tx_tail;
+	const uint8_t tail_next = (tail + 1) & UART_TX_MASK;
+
+	if (tail == uart_tx_head)
+	{
+		// turn off the buffer level interrupt
+		USART_IntDisable(USART1, USART_IF_TXBL);
+		return;
+	}
+
+	const uint8_t c = uart_tx_buf[tail];
+	USART->TXDATA = (uint32_t) c;
+
+	uart_tx_tail = tail_next;
+}
+
+static void uart_putc(uint8_t c, bool blocking)
+{
+	const uint8_t head = uart_tx_head;
+	const uint8_t head_next = (head + 1) & UART_TX_MASK;
+
+	do {
+		// wait for space in the queue to open up
+		if (head_next == uart_tx_tail)
+			continue;
+
+		uart_tx_buf[head] = c;
+		uart_tx_head = head_next;
+
+		// if the interrupts are not currently enabled,
+		// there are no pending characters and we can start it
+		USART_IntEnable(USART1, USART_IF_TXBL);
+		break;
+	} while(blocking);
+}
+#endif
+
+
 // Send string of given length
 void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
-#if MICROPY_MIN_USE_STDOUT
-    int r = write(1, str, len);
-    (void)r;
-#elif MICROPY_MIN_USE_CORTEX_CPU
     while (len--) {
-        USART_Tx(USART, *str++);
-    }
+#ifdef CONFIG_TX_IRQ
+	uart_putc(*str++, 1);
+#else
+	USART_Tx(USART, *str++);
 #endif
+    }
 }
 
 void mp_hal_stdout_init(void)
 {
-#if MICROPY_MIN_USE_STDOUT
-    return;
-#elif MICROPY_MIN_USE_CORTEX_CPU
     // 115200 n81
     CMU_ClockEnable(USART_CLOCK, true);
     CMU_ClockEnable(cmuClock_GPIO, true);
@@ -156,5 +201,12 @@ void mp_hal_stdout_init(void)
   NVIC_EnableIRQ(USART1_RX_IRQn);
 #endif
 
+#ifdef CONFIG_TX_IRQ
+  // configure TX interrupts on USART1, but do not enable yet
+  USART_IntClear(USART1, USART_IF_TXBL);
+  //USART_IntEnable(USART1, USART_IF_TXBL);
+
+  NVIC_ClearPendingIRQ(USART1_TX_IRQn);
+  NVIC_EnableIRQ(USART1_TX_IRQn);
 #endif
 }

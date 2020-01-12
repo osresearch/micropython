@@ -14,6 +14,7 @@
 #include "em_usart.h"
 #include "em_cmu.h"
 #include "em_gpio.h"
+#include "lib/utils/interrupt_char.h"
 
 #define USART USART1
 #define USART_CLOCK  cmuClock_USART1
@@ -39,25 +40,76 @@
 
 #endif
 
-// Receive single character
-int mp_hal_stdin_rx_chr(void) {
-    unsigned char c = 0;
-#if MICROPY_MIN_USE_STDOUT
-    int r = read(0, &c, 1);
-    (void)r;
-#elif MICROPY_MIN_USE_CORTEX_CPU
-    c = USART_Rx(USART);
-#endif
-    return c;
-}
 
+#define CONFIG_RX_IRQ
+
+#ifdef CONFIG_RX_IRQ
+
+#define UART_RX_MASK 0x3F
+static volatile uint8_t uart_rx_buf[UART_RX_MASK+1];
+static volatile uint8_t uart_rx_head;
+static volatile uint8_t uart_rx_tail;
+static volatile uint8_t uart_rx_drop;
+
+void USART1_RX_IRQHandler()
+{
+	if ((USART1->IF & USART_IF_RXDATAV) == 0)
+		return;
+
+	uint8_t c = (uint8_t)USART1->RXDATA;
+
+	if (mp_interrupt_char == (int) c)
+		mp_keyboard_interrupt();
+
+	uint8_t head = uart_rx_head;
+	uint8_t next_head = (head + 1) & UART_RX_MASK;
+
+	// drop the character if there is not room
+	if (next_head == uart_rx_tail)
+	{
+		uart_rx_drop = 1;
+		return;
+	}
+
+	// room in the queue, store it
+	uart_rx_buf[head] = c;
+	uart_rx_head = next_head;
+}
+#endif
+
+// check for any data available
 uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags)
 {
-    if ((poll_flags & MP_STREAM_POLL_RD)
-    &&  (USART->STATUS & USART_STATUS_RXDATAV))
-        return MP_STREAM_POLL_RD;
-    return 0;
+	if ((poll_flags & MP_STREAM_POLL_RD) == 0)
+		return 0;
+#ifdef CONFIG_RX_IRQ
+	// anything in the queue?
+	return uart_rx_head != uart_rx_tail;
+#else
+	if (USART->STATUS & USART_STATUS_RXDATAV)
+		return MP_STREAM_POLL_RD;
+	return 0;
+#endif
 }
+
+// Receive single character
+int mp_hal_stdin_rx_chr(void)
+{
+	unsigned char c = 0;
+
+#ifdef CONFIG_RX_IRQ
+	while(!mp_hal_stdio_poll(MP_STREAM_POLL_RD))
+		;
+	uint8_t tail = uart_rx_tail;
+	c = uart_rx_buf[tail];
+	uart_rx_tail = (tail + 1) % UART_RX_MASK;
+#else
+	// spin on the incoming register
+	c = USART_Rx(USART);
+#endif
+	return c;
+}
+
 
 // Send string of given length
 void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
@@ -94,5 +146,15 @@ void mp_hal_stdout_init(void)
   // Enable TX/RX
   USART->CMD = USART_CMD_RXEN
                 | USART_CMD_TXEN;
+
+#ifdef CONFIG_RX_IRQ
+  // enable RX interrupts on USART1
+  USART_IntClear(USART1, USART_IF_RXDATAV);
+  USART_IntEnable(USART1, USART_IF_RXDATAV);
+
+  NVIC_ClearPendingIRQ(USART1_RX_IRQn);
+  NVIC_EnableIRQ(USART1_RX_IRQn);
+#endif
+
 #endif
 }

@@ -103,7 +103,7 @@ int mp_hal_stdin_rx_chr(void)
 		;
 	const uint8_t tail = uart_rx_tail;
 	c = uart_rx_buf[tail];
-	uart_rx_tail = (tail + 1) % UART_RX_MASK;
+	uart_rx_tail = (tail + 1) & UART_RX_MASK;
 #else
 	// spin on the incoming register
 	c = USART_Rx(USART);

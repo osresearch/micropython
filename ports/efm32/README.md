@@ -25,6 +25,7 @@ an external SPI flash for storing OTA images or other things.
 
 * [Gecko SDK](https://github.com/SiliconLabs/Gecko_SDK)
 * [SDK documentation](https://siliconlabs.github.io/Gecko_SDK_Doc/)
+* [IO Device to Pin Location mapping](efm32mg1-pins.md)
 
 ## Supported features
 * It boots!

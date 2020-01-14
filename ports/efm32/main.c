@@ -87,6 +87,12 @@ int main(int argc, char **argv)
 	/* Enable AES clock: otherwise result from AES ops is 0 */
 	CMU_ClockEnable(cmuClock_CRYPTO, true);
 
+	/* Enable clock for GPIO module and TIMER1 for PWM */
+	CMU_ClockEnable(cmuClock_GPIO, true);
+	CMU_ClockEnable(cmuClock_TIMER1, true );
+
+	/* TODO: figure out if we can turn off clocks to save power */
+
     extern void mp_hal_stdout_init(void);
     extern char mp_hal_stdin_rx_chr(void);
     mp_hal_stdout_init();

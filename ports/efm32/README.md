@@ -38,13 +38,13 @@ an external SPI flash for storing OTA images or other things.
 * TX UART FIFO, so that the CPU isn't busywaiting on the serial port
 * RX UART FIFO, so that long running operations don't drop serial datat
 * Interrupting the REPL - you can now hit ^C and stop an infinite loop!
+* One PWM channel is supported; the `machine.pwm` module needs some rethink.
 * Much of the Zigbee protocol is in the [ZbPy tree](https://github.com/osresearch/zbpy), including decrypting, validating, and parsing messages through to ZCL.
 
 ## Not yet supported
 * Zigbee OTA: Over the air updates to the firmware
 * Bluetooth LE
 * Thread?
-* PWM
 
 # No Warranty!
 

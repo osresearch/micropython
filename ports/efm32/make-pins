@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+#use File::Slurp 'slurp';
+
+#my $file = 'gecko_sdk/include/efr32mg1p_af_pins.h';
+#my @lines = slurp($file)
+	#or die "$file: unable to open: $!\n";
+
+my %func;
+
+while(<>)
+{
+	chomp;
+
+	my ($name,$func) = /
+		^
+		\#define\s+
+		(.*?)
+		\(i\)
+		\s+
+		(.*)
+		$
+	/msgx
+		or next;
+
+	$func =~ s/i/\$i/g;
+
+	my $f = eval "sub { my \$i = shift ; $func }";
+	my (undef,$root,$thing,$type) = split /_/, $name;
+
+	$func{$root}{$thing}{$type} = $f;
+}
+
+for my $root (sort keys %func)
+{
+	print "\n\n# $root\n\n";
+
+	print "System";
+	print " | $_" for 0..15;
+	print "\n";
+	print "---";
+	print " | ---" for 0..15;
+	print "\n";
+
+	for my $type (sort keys %{$func{$root}})
+	{
+		print "`${root}_$type`";
+
+		for my $i (0..15)
+		{
+			my $port = $func{$root}{$type}{PORT}->($i);
+			my $pin = $func{$root}{$type}{PIN}->($i);
+
+			print " |";
+			next if $port < 0 or $pin < 0;
+
+			$port = chr($port + ord("A"));
+			print " $port$pin";
+		}
+
+		print "\n";
+	}
+
+}

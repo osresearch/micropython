@@ -176,6 +176,9 @@ gdb: $(BUILD)/firmware.elf
 		-iex 'display /i $pc' \
 		$<
 
+$(EFM_FAMILY)-pins.md: gecko_sdk/include/$(EFM_FAMILY)_af_ports.h  gecko_sdk/include/$(EFM_FAMILY)_af_pins.h
+	./make-pins $^ > $@
+
 test: $(BUILD)/firmware.elf
 	$(Q)/bin/echo -e "print('hello world!', list(x+1 for x in range(10)), end='eol\\\\n')\\r\\n\\x04" | $(BUILD)/firmware.elf | tail -n2 | grep "^hello world! \\[1, 2, 3, 4, 5, 6, 7, 8, 9, 10\\]eol"
 

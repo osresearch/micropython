@@ -42,6 +42,10 @@ an external SPI flash for storing OTA images or other things.
 * Much of the Zigbee protocol is in the [ZbPy tree](https://github.com/osresearch/zbpy), including decrypting, validating, and parsing messages through to ZCL.
 
 ## Not yet supported
+* Sleep modes - should be able to sleep until radio or button press
+* Interrupts
+* Timer functions
+* RTC
 * Zigbee OTA: Over the air updates to the firmware
 * Bluetooth LE
 * Thread?

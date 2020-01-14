@@ -16,9 +16,12 @@ extra jumpers.
 
 ![EFR32 QFN pinout](images/efr32-pins.png)
 
-Datasheet for the [EFR32MG1P132G1](https://www.silabs.com/documents/public/data-sheets/efr32mg1-datasheet.pdf)
-used in the Ikea devices.  QFN48 package, 256 KB of internal flash, 32 KB of internal RAM, external SPI flash
-for storing OTA images or other things.
+The EFR32MG1P132G1 ([Datasheet](https://www.silabs.com/documents/public/data-sheets/efr32mg1-datasheet.pdf) and
+[Reference Manual](https://www.silabs.com/documents/public/reference-manuals/efr32xg12-rm.pdf))
+is the microcontroller used in the Ikea devices.
+Some on SiLabs modules, some with the bare QFN48 package on the board.
+The MCU has 256 KB of internal flash, 32 KB of internal RAM and Ikea adds
+an external SPI flash for storing OTA images or other things.
 
 * [Gecko SDK](https://github.com/SiliconLabs/Gecko_SDK)
 * [SDK documentation](https://siliconlabs.github.io/Gecko_SDK_Doc/)

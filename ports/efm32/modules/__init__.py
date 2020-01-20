@@ -29,7 +29,7 @@ uos.mount(uos.VfsLfs2(bdev), '/')
 		print("lfs2 flash block dev mount failed")
 		return
 
-	print("SPI block device mounted on /")
+	#print("SPI block device mounted on /")
 
 
 mount()

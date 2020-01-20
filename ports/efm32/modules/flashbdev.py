@@ -24,7 +24,7 @@ class FlashBdev:
 	# Ikea matched the same pinout when they laid out the On/Off switch
 	self.flash = SPIFlash(self.cs, self.spi)
 
-	print("SPI device ID:", self.rdid())
+	#print("SPI device ID:", self.rdid())
 
 
     def readblocks(self, n, buf, off=0):

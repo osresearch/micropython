@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <string.h>
 #include "py/mpconfig.h"
 #include "py/stream.h"
 
@@ -14,6 +15,7 @@
 #include "em_cmu.h"
 #include "em_gpio.h"
 #include "lib/utils/interrupt_char.h"
+#include "zrepl.h"
 
 // this definition is insufficient; there are places where usart1 is used
 #define USART USART1
@@ -52,13 +54,9 @@ static volatile uint8_t uart_rx_head;
 static volatile uint8_t uart_rx_tail;
 static volatile uint8_t uart_rx_drop;
 
-void USART1_RX_IRQHandler()
+// receive a character from the uart or from the zrepl
+void uart_recv(uint8_t c)
 {
-	if ((USART1->IF & USART_IF_RXDATAV) == 0)
-		return;
-
-	const uint8_t c = (uint8_t)USART1->RXDATA;
-
 	if (mp_interrupt_char == (int) c)
 		mp_keyboard_interrupt();
 
@@ -75,6 +73,15 @@ void USART1_RX_IRQHandler()
 	// room in the queue, store it
 	uart_rx_buf[head] = c;
 	uart_rx_head = next_head;
+}
+
+void USART1_RX_IRQHandler()
+{
+	if ((USART1->IF & USART_IF_RXDATAV) == 0)
+		return;
+
+	uart_recv((uint8_t)USART1->RXDATA);
+
 }
 #endif
 
@@ -137,9 +144,12 @@ void USART1_TX_IRQHandler(void)
 
 	uart_tx_tail = tail_next;
 }
+#endif
+
 
 static void uart_putc(uint8_t c, bool blocking)
 {
+#ifdef CONFIG_TX_IRQ
 	const uint8_t head = uart_tx_head;
 	const uint8_t head_next = (head + 1) & UART_TX_MASK;
 
@@ -156,20 +166,41 @@ static void uart_putc(uint8_t c, bool blocking)
 		USART_IntEnable(USART1, USART_IF_TXBL);
 		break;
 	} while(blocking);
-}
-#endif
-
-
-// Send string of given length
-void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
-    while (len--) {
-#ifdef CONFIG_TX_IRQ
-	uart_putc(*str++, 1);
 #else
 	USART_Tx(USART, *str++);
 #endif
-    }
 }
+
+// Send string of given length
+void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len)
+{
+	if (zrepl_active)
+		zrepl_send(str, len);
+
+	while (len--)
+		uart_putc(*str++, 1);
+}
+
+// Send a string of a given length, but replace \n with \r\n
+void mp_hal_stdout_tx_strn_cooked(const char *str, mp_uint_t len)
+{
+	if (zrepl_active)
+		zrepl_send(str, len);
+
+	while (len--)
+	{
+		const char c = *str++;
+		if (c == '\n')
+			uart_putc('\r', 1);
+		uart_putc(c, 1);
+	}
+}
+
+void mp_hal_stdout_tx_str(const char *str)
+{
+	mp_hal_stdout_tx_strn(str, strlen(str));
+}
+
 
 void mp_hal_stdout_init(void)
 {

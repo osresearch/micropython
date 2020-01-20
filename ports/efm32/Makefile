@@ -73,10 +73,10 @@ SRC_C = \
 	modmachine.c \
 	modcrypto.c \
 	radio.c \
+	zrepl.c \
 
 PYLIB_SRC_C = \
 	lib/utils/printf.c \
-	lib/utils/stdout_helpers.c \
 	lib/utils/pyexec.c \
 	lib/libc/string0.c \
 	lib/mp-readline/readline.c \

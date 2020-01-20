@@ -42,6 +42,7 @@ an external SPI flash for storing OTA images or other things.
 * Much of the Zigbee protocol is in the [ZbPy tree](https://github.com/osresearch/zbpy), including decrypting, validating, and parsing messages through to ZCL.
 
 ## Not yet supported
+* zrepl: a console over the 802.15.4 radio for remote access
 * Sleep modes - should be able to sleep until radio or button press
 * Interrupts
 * Timer functions

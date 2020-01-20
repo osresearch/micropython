@@ -10,18 +10,12 @@
 #include "em_gpio.h"
 #include "em_cmu.h"
 #include "em_core.h"
+#include "radio.h"
+#include "zrepl.h"
 
 #include "rail/rail.h"
 #include "rail/pa.h"
 #include "rail/ieee802154/rail_ieee802154.h"
-
-/* 802.15.4 maximum size of a single packet including PHY byte is 128 bytes */
-#define MAC_PACKET_MAX_LENGTH   128
-/* Offsets of prepended data in packet buffer */
-#define MAC_PACKET_OFFSET_RSSI  0
-#define MAC_PACKET_OFFSET_LQI   1
-/* This driver prepends RSSI and LQI */
-#define MAC_PACKET_INFO_LENGTH  2
 
 
 typedef enum {
@@ -90,7 +84,7 @@ static const RAIL_TxPowerConfig_t paInit2p4 = {
 
 static const RAIL_CsmaConfig_t csma_config = RAIL_CSMA_CONFIG_802_15_4_2003_2p4_GHz_OQPSK_CSMA;
 
-static uint8_t MAC_address[8];
+uint8_t radio_mac_address[8];
 
 /*
  * Called when radio calibration is required
@@ -104,6 +98,7 @@ void RAILCb_CalNeeded()
 static void rail_callback_rfready(RAIL_Handle_t rail)
 {
 	radio_state = RADIO_IDLE;
+	radio_tx_pending = 0;
 }
 
 #define MAX_PKTS 8
@@ -112,8 +107,8 @@ static volatile unsigned rx_buffer_read;
 static uint8_t rx_buffers[MAX_PKTS][MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
 static uint8_t rx_buffer_copy[MAC_PACKET_MAX_LENGTH + MAC_PACKET_INFO_LENGTH];
 
-static uint8_t tx_buffer[MAC_PACKET_MAX_LENGTH];
-static volatile int tx_pending;
+uint8_t radio_tx_buffer[MAC_PACKET_MAX_LENGTH+1];
+volatile int radio_tx_pending;
 
 static void process_packet(RAIL_Handle_t rail)
 {
@@ -123,9 +118,9 @@ static void process_packet(RAIL_Handle_t rail)
 		return;
 
 	// deal with acks early
+/*
 	uint8_t header[4];
 	RAIL_PeekRxPacket(rail, handle, header, 4, 0);
-/*
 	if (header[0] == 5
 	&&  header[3] == current_tx_sequence
 	&& waiting_for_ack)
@@ -145,17 +140,25 @@ static void process_packet(RAIL_Handle_t rail)
 		unsigned write_index = rx_buffer_write;
 		uint8_t * rx_buffer = rx_buffers[write_index];
 		RAIL_CopyRxPacket(rx_buffer, &info); // puts the length in byte 0
+
+		// allow the zrepl to process this message
+		// length is in the first byte and includes
+		// an extra two bytes at the end that we ignore
+		zrepl_recv(rx_buffer+1, *rx_buffer - 2);
+
 		if (write_index == MAX_PKTS - 1)
 			rx_buffer_write = 0;
 		else
 			rx_buffer_write = write_index + 1;
 
+/*
 		// cancel the ACK if the sender did not request one
 		// buffer[0] == length
 		// buffer[1] == frame_type[0:2], security[3], frame_pending[4], ack_req[5], intrapan[6]
 		// buffer[2] == destmode[2:3], version[4:5], srcmode[6:7]
 		if ((rx_buffer[1] & (1 << 5)) == 0)
 			RAIL_CancelAutoAck(rail);
+*/
 
 #if 0
 		printf("rx %2d bytes lqi=%d rssi=%d:", info.packetBytes, details.lqi, details.rssi);
@@ -225,28 +228,31 @@ static void rail_callback_events(RAIL_Handle_t rail, RAIL_Events_t events)
             */
 	}
 
-	if (events & RAIL_EVENT_TX_PACKET_SENT)
+	if (events & RAIL_EVENTS_TX_COMPLETION)
 	{
-		// they are done with our packet, maybe signal something?
+		// they are done with our packet, either for good or worse
 		//printf("TX done!\n");
-		tx_pending = 0;
+		radio_tx_pending = 0;
 	}
 
 	if (events & RAIL_EVENT_CAL_NEEDED)
 	{
 		// we should flag that a calibration is needed
+		// does this cancel any transmits?
+		radio_tx_pending = 0;
 	}
 
 	// lots of other events that we don't handle
 }
 
 
-static mp_obj_t radio_init(void)
+mp_obj_t radio_init(void)
 {
 	// do not re-init
 	if (radio_state != RADIO_UNINIT)
 		return mp_const_none;
 
+	if(0)
 	printf("%s: mac %08x:%08x\n", __func__, (unsigned int) DEVINFO->UNIQUEH, (unsigned int) DEVINFO->UNIQUEL);
 
 	rail = RAIL_Init(&rail_config, rail_callback_rfready);
@@ -267,9 +273,9 @@ static mp_obj_t radio_init(void)
 	RAIL_SetTxPower(rail, 255); // max
 
 	// use the device unique id as the mac for network index 0
-	memcpy(&MAC_address[0], (const void*)&DEVINFO->UNIQUEL, 4);
-	memcpy(&MAC_address[4], (const void*)&DEVINFO->UNIQUEH, 4);
-	RAIL_IEEE802154_SetLongAddress(rail, MAC_address, 0);
+	memcpy(&radio_mac_address[0], (const void*)&DEVINFO->UNIQUEL, 4);
+	memcpy(&radio_mac_address[4], (const void*)&DEVINFO->UNIQUEH, 4);
+	RAIL_IEEE802154_SetLongAddress(rail, radio_mac_address, 0);
 
 	// start the radio
 	RAIL_Idle(rail, RAIL_IDLE_FORCE_SHUTDOWN_CLEAR_FLAGS, true);
@@ -298,22 +304,63 @@ static mp_obj_t radio_rxbytes_get(void)
 		rx_buffer_bytearray = mp_obj_new_bytearray_by_ref(sizeof(rx_buffer_copy), rx_buffer_copy);
 
 	// resize the buffer for the return code and copy into it
-	CORE_ATOMIC_IRQ_DISABLE();
 	mp_obj_array_t * buf = MP_OBJ_TO_PTR(rx_buffer_bytearray);
 	unsigned read_index = rx_buffer_read;
 	uint8_t * const rx_buffer = rx_buffers[read_index];
-	buf->len = rx_buffer[0];
+
+	CORE_ATOMIC_IRQ_DISABLE();
+	buf->len = rx_buffer[0] - 2;
+	if (buf->len > MAC_PACKET_MAX_LENGTH)
+	{
+		// discard this packet? should signal something
+		buf->len = MAC_PACKET_MAX_LENGTH;
+	}
+
 	memcpy(rx_buffer_copy, rx_buffer+1, buf->len);
 	if (read_index == MAX_PKTS - 1)
 		rx_buffer_read = 0;
 	else
 		rx_buffer_read = read_index + 1;
+
 	CORE_ATOMIC_IRQ_ENABLE();
 
 	return rx_buffer_bytearray;
 }
 
 MP_DEFINE_CONST_FUN_OBJ_0(radio_rxbytes_obj, radio_rxbytes_get);
+
+
+// length of message should be in radio_tx_buffer[0]
+// returns 0 if ok, -1 if not
+int radio_send_tx_buffer(void)
+{
+	CORE_ATOMIC_IRQ_DISABLE();
+
+	radio_tx_pending = 1;
+	radio_state = RADIO_TX;
+	RAIL_Idle(rail, RAIL_IDLE_ABORT, true);
+
+	const uint8_t len = radio_tx_buffer[0] - 2;
+	RAIL_SetTxFifo(rail, radio_tx_buffer, len + 1, len + 1);
+	static const RAIL_TxOptions_t txOpt = RAIL_TX_OPTIONS_DEFAULT;
+
+/*
+	// check if we're waiting for an ack, but not yet implemented
+	if (radio_tx_buffer[1+1] & (1 << 5))
+		txOpt |= RAIL_TX_OPTION_WAIT_FOR_ACK;
+*/
+
+	// start the transmit, we hope!
+	int rc = RAIL_StartCcaCsmaTx(rail, channel, txOpt, &csma_config, NULL);
+
+	// if it failed to start, unset the pending flag
+	if (rc != 0)
+		radio_tx_pending = 0;
+
+	CORE_ATOMIC_IRQ_ENABLE();
+	return rc;
+}
+
 
 /*
  * Send a byte buffer to the radio.
@@ -323,40 +370,29 @@ static mp_obj_t radio_txbytes(mp_obj_t buf_obj)
 	if (radio_state == RADIO_UNINIT)
 		radio_init();
 
-	if (tx_pending)
-		mp_raise_ValueError("tx pending");
+	// should block instead?
+	//mp_raise_ValueError("tx pending");
+	unsigned timeout_counter = 0;
+	while (radio_tx_pending)
+	{
+		if (timeout_counter++ > 100000)
+			mp_raise_ValueError("tx timeout");
+	}
+		
 
 	mp_buffer_info_t buf;
 	mp_get_buffer_raise(buf_obj, &buf, MP_BUFFER_READ);
 	unsigned len = buf.len;
 	if (len > MAC_PACKET_MAX_LENGTH)
 		mp_raise_ValueError("tx length too long");
-	tx_buffer[0] = 2 + (uint8_t) buf.len; // include hardware FCS
-	memcpy(tx_buffer+1, buf.buf, len);
+	radio_tx_buffer[0] = 2 + (uint8_t) buf.len; // include hardware FCS
+	memcpy(radio_tx_buffer+1, buf.buf, len);
 
-	CORE_ATOMIC_IRQ_DISABLE();
+	int rc = radio_send_tx_buffer();
+	if (rc != 0)
+		mp_raise_ValueError("tx failed");
 
-	tx_pending = 1;
-	radio_state = RADIO_TX;
-	RAIL_Idle(rail, RAIL_IDLE_ABORT, true);
-	RAIL_SetTxFifo(rail, tx_buffer, len + 1, len + 1);
-	RAIL_TxOptions_t txOpt = RAIL_TX_OPTIONS_DEFAULT;
-
-	// check if we're waiting for an ack, but not yet implemented
-	if (tx_buffer[1+1] & (1 << 5))
-	{
-		txOpt |= RAIL_TX_OPTION_WAIT_FOR_ACK;
-	}
-
-	// start the transmit, we hope!
-	int rc = RAIL_StartCcaCsmaTx(rail, channel, txOpt, &csma_config, NULL);
-
-	CORE_ATOMIC_IRQ_ENABLE();
-
-	if (rc == 0)
-		return mp_const_none;
-
-	mp_raise_ValueError("tx failed");
+	return mp_const_none;
 }
 
 MP_DEFINE_CONST_FUN_OBJ_1(radio_txbytes_obj, radio_txbytes);
@@ -369,7 +405,7 @@ static mp_obj_t radio_mac(void)
 
 	static mp_obj_t mac_bytes;
 	if (!mac_bytes)
-		mac_bytes = mp_obj_new_bytes(MAC_address, sizeof(MAC_address));
+		mac_bytes = mp_obj_new_bytes(radio_mac_address, sizeof(radio_mac_address));
 	return mac_bytes;
 }
 

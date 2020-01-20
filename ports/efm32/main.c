@@ -38,29 +38,12 @@
 #include "em_chip.h"
 #include "em_cmu.h"
 #include "em_emu.h"
+#include "zrepl.h"
+#include "radio.h"
 
-void do_str(const char *src, mp_parse_input_kind_t input_kind) {
-    nlr_buf_t nlr;
-    if (nlr_push(&nlr) == 0) {
-        mp_lexer_t *lex = mp_lexer_new_from_str_len(MP_QSTR__lt_stdin_gt_, src, strlen(src), 0);
-        qstr source_name = lex->source_name;
-        mp_parse_tree_t parse_tree = mp_parse(lex, input_kind);
-        mp_obj_t module_fun = mp_compile(&parse_tree, source_name, true);
-        mp_call_function_0(module_fun);
-        nlr_pop();
-    } else {
-        // uncaught exception
-        mp_obj_print_exception(&mp_plat_print, (mp_obj_t)nlr.ret_val);
-    }
-}
-
-/*
- * Stand-alone micropython
- */
-static char *stack_top;
-#if MICROPY_ENABLE_GC
-static char heap[24000];
-#endif
+extern uint8_t __StackTop;
+extern uint8_t __HeapBase;
+extern uint8_t __HeapLimit;
 
 int main(int argc, char **argv)
 {
@@ -93,15 +76,17 @@ int main(int argc, char **argv)
 
 	/* TODO: figure out if we can turn off clocks to save power */
 
-    extern void mp_hal_stdout_init(void);
-    extern char mp_hal_stdin_rx_chr(void);
-    mp_hal_stdout_init();
-    int stack_dummy;
+	extern void mp_hal_stdout_init(void);
+	extern char mp_hal_stdin_rx_chr(void);
+	mp_hal_stdout_init();
+
+	radio_init();
+	zrepl_active = 0;
 
 soft_reset:
-    stack_top = (char*)&stack_dummy;
 
-    gc_init(heap, heap + sizeof(heap));
+    //gc_init(heap, heap + sizeof(heap));
+    gc_init(&__HeapBase, &__HeapLimit);
     mp_init();
 
     // run boot-up scripts
@@ -142,7 +127,7 @@ void gc_collect(void) {
     // pointers from CPU registers, and thus may function incorrectly.
     void *dummy;
     gc_collect_start();
-    gc_collect_root(&dummy, ((mp_uint_t)stack_top - (mp_uint_t)&dummy) / sizeof(mp_uint_t));
+    gc_collect_root(&dummy, ((mp_uint_t)&__StackTop - (mp_uint_t)&dummy) / sizeof(mp_uint_t));
     gc_collect_end();
     //gc_dump_info();
 }
@@ -181,6 +166,13 @@ void SysTick_Handler     (void) { printf("%s\n", __func__); while(1); }
 void HardFault_Handler   (void) __attribute__((__naked__));
 void HardFault_Handler   (void)
 {
+	// avoid busy wait calls in zrepl_send()
+	zrepl_active = 0;
+
 	printf("%s\n", __func__);
-	while(1);
+
+	while(1)
+	{
+		// should flash gpio0 LED or someting
+	}
 }

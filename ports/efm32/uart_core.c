@@ -92,12 +92,13 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags)
 		return 0;
 #ifdef CONFIG_RX_IRQ
 	// anything in the queue?
-	return uart_rx_head != uart_rx_tail;
+	if (uart_rx_head != uart_rx_tail)
+		return MP_STREAM_POLL_RD;
 #else
 	if (USART->STATUS & USART_STATUS_RXDATAV)
 		return MP_STREAM_POLL_RD;
-	return 0;
 #endif
+	return 0;
 }
 
 // Receive single character
@@ -125,6 +126,12 @@ int mp_hal_stdin_rx_chr(void)
 static volatile uint8_t uart_tx_buf[UART_TX_MASK+1];
 static volatile uint8_t uart_tx_head;
 static volatile uint8_t uart_tx_tail;
+
+void uart_tx_flush(void)
+{
+	while (uart_tx_tail != uart_tx_head)
+		;
+}
 
 void USART1_TX_IRQHandler(void)
 {

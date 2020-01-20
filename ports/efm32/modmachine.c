@@ -33,6 +33,7 @@
 #include "py/objstr.h"
 #include "py/mperrno.h"
 #include "py/mphal.h"
+#include "py/stream.h"
 #include "extmod/machine_mem.h"
 #include "extmod/machine_pin.h"
 #include "extmod/machine_spi.h"
@@ -79,6 +80,16 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_deepsleep_obj, 0, 1, machine_deepsle
 extern const mp_obj_module_t mp_module_crypto;
 extern const mp_obj_module_t mp_module_timer_obj;
 
+static mp_obj_t
+machine_stdio_poll(void)
+{
+        if (mp_hal_stdio_poll(MP_STREAM_POLL_RD))
+		return mp_const_true;
+	else
+		return mp_const_false;
+}
+MP_DEFINE_CONST_FUN_OBJ_0(machine_stdio_poll_obj, machine_stdio_poll);
+
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_umachine) },
 /*
@@ -96,6 +107,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_SPI),                 MP_ROM_PTR(&mp_machine_soft_spi_type) },
     { MP_ROM_QSTR(MP_QSTR_SPIFlash),            MP_ROM_PTR(&mp_machine_spiflash_type) },
     { MP_ROM_QSTR(MP_QSTR_Timer1),              MP_ROM_PTR(&mp_module_timer_obj) },
+    { MP_ROM_QSTR(MP_QSTR_stdio_poll),          MP_ROM_PTR(&machine_stdio_poll_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(machine_module_globals, machine_module_globals_table);

@@ -81,7 +81,7 @@ int main(int argc, char **argv)
 	mp_hal_stdout_init();
 
 	radio_init();
-	zrepl_active = 0;
+	zrepl_active = 1;
 
 soft_reset:
 

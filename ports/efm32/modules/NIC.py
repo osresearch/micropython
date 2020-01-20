@@ -3,14 +3,14 @@
 # Reads hex from the serial port and sends it on the wire
 
 import sys
-from machine import stdio_poll
+import machine
 from ubinascii import hexlify, unhexlify
 import Radio
 Radio.init()
 Radio.promiscuous(True)
 
-
 incoming = ''
+machine.zrepl(False)
 
 while True:
 	pkt = Radio.rx()
@@ -19,7 +19,7 @@ while True:
 		# representation
 		x = repr(hexlify(pkt))[2:-1]
 		print(x)
-	if stdio_poll():
+	if machine.stdio_poll():
 		y = sys.stdin.read(1)
 		if y != '\n':
 			incoming += y

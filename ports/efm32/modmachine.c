@@ -39,6 +39,7 @@
 #include "extmod/machine_spi.h"
 #include "extmod/machine_spiflash.h"
 #include "zrepl.h"
+#include "em_core.h"
 
 
 // need to implement these
@@ -50,12 +51,6 @@ STATIC mp_obj_t machine_unique_id(void) {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(machine_unique_id_obj, machine_unique_id);
 
-// Resets the pyboard in a manner similar to pushing the external RESET button.
-STATIC mp_obj_t machine_reset(void) {
-    powerctrl_mcu_reset();
-    return mp_const_none;
-}
-MP_DEFINE_CONST_FUN_OBJ_0(machine_reset_obj, machine_reset);
 
 STATIC mp_obj_t machine_lightsleep(size_t n_args, const mp_obj_t *args) {
     if (n_args != 0) {
@@ -77,6 +72,13 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *args) {
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_deepsleep_obj, 0, 1, machine_deepsleep);
 #endif
+
+static mp_obj_t
+machine_reset(void) {
+	NVIC_SystemReset();
+	return mp_const_none; // better not reach here!
+}
+MP_DEFINE_CONST_FUN_OBJ_0(machine_reset_obj, machine_reset);
 
 extern const mp_obj_module_t mp_module_crypto;
 extern const mp_obj_module_t mp_module_timer_obj;
@@ -107,9 +109,9 @@ MP_DEFINE_CONST_FUN_OBJ_1(machine_zrepl_obj, machine_zrepl);
 
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_umachine) },
+    { MP_ROM_QSTR(MP_QSTR_reset),               MP_ROM_PTR(&machine_reset_obj) },
 /*
     { MP_ROM_QSTR(MP_QSTR_unique_id),           MP_ROM_PTR(&machine_unique_id_obj) },
-    { MP_ROM_QSTR(MP_QSTR_reset),               MP_ROM_PTR(&machine_reset_obj) },
     { MP_ROM_QSTR(MP_QSTR_soft_reset),          MP_ROM_PTR(&machine_soft_reset_obj) },
     { MP_ROM_QSTR(MP_QSTR_bootloader),          MP_ROM_PTR(&machine_bootloader_obj) },
 */

@@ -12,6 +12,20 @@ which has the Gecko board as a module inside the case as well as easy to
 access SWD pins for reprogramming.  The console pins require soldering
 extra jumpers.
 
+If you want to have code run at boot up, you can either add it to
+the `modules/__init__.py` file, or you can create `boot.py` on the
+SPI flash device.  Once the machine is booted, run this at the repl:
+
+```
+f = open("boot.py","w")
+f.write('import foo')
+f.close()
+import machine
+machine.reset()
+```
+
+Now that uart interrupts are supported you can stop the boot script with `^C`.
+
 # EFM32 features
 
 ![EFR32 QFN pinout](images/efr32-pins.png)
@@ -40,9 +54,9 @@ an external SPI flash for storing OTA images or other things.
 * Interrupting the REPL - you can now hit ^C and stop an infinite loop!
 * One PWM channel is supported; the `machine.pwm` module needs some rethink.
 * Much of the Zigbee protocol is in the [ZbPy tree](https://github.com/osresearch/zbpy), including decrypting, validating, and parsing messages through to ZCL.
+* zrepl: a console over the 802.15.4 radio for remote access
 
 ## Not yet supported
-* zrepl: a console over the 802.15.4 radio for remote access
 * Sleep modes - should be able to sleep until radio or button press
 * Interrupts
 * Timer functions

@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+# zrepl: MicroPython repl access over Zigbee multipurpose frames
+# the local interface should be running the NIC.py firmware so that
+# it is hexdumping the raw packets that are being received
+
+import os
+import sys
+import serial
+from select import select
+from binascii import unhexlify, hexlify
+#from ZbPy import Parser
+
+verbose = True
+device = "/dev/ttyUSB0"
+speed = 115200
+dev = serial.Serial(device, speed)
+dest = unhexlify(b'58df3efeff57b414')
+
+line = b'';
+
+def process_line(line):	
+	# ignore the echos back to us
+	if line[0:6] == b'SEND: ':
+		return
+
+	pkt = unhexlify(line)
+	if len(pkt) < (1 + 1 + 8):
+		return
+
+	if pkt[0] != 0xc5:
+		return
+
+	# ieee multipurpose, our console
+	seq = pkt[1]
+	src = hexlify(pkt[2:10])
+	data = pkt[10:]
+	if verbose:
+		print(src, seq, data)
+	else:
+		#sys.stdout.write(str(data))
+		#print(bytes(data, "utf-8"), end='')
+		os.write(1, data)
+	#(ieee,t) = Parser.parse(unhexlify(line))
+	#print(ieee)
+
+def process_serial(dev):
+	global line
+	c = dev.read(1)
+	if c is None:
+		return
+	if c == b'\r':
+		return
+	if c != b'\n':
+		line += c
+		return
+
+	try:
+		process_line(line)
+	except:
+		# parse error?
+		print("BAD PACKET: ", line)
+	line = b''
+
+user_seq = 0
+
+def process_stdio():
+	global user_seq
+	user_data = b''
+	while select([sys.stdin],[],[],0)[0]:
+		user_data += bytes(sys.stdin.read(1), "utf-8")
+	if user_data == b'':
+		return
+	msg = bytearray(2 + len(dest) + len(user_data))
+	msg[0] = 0x35
+	msg[1] = user_seq & 0xFF
+	msg[2] = dest[0]
+	msg[3] = dest[1]
+	msg[4] = dest[2]
+	msg[5] = dest[3]
+	msg[6] = dest[4]
+	msg[7] = dest[5]
+	msg[8] = dest[6]
+	msg[9] = dest[7]
+	msg[10:] = user_data
+	user_seq += 1
+	hexmsg = hexlify(msg)
+	print(hexmsg)
+	dev.write(hexmsg + b"\n")
+
+while True:
+	process_serial(dev)
+	process_stdio()

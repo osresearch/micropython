@@ -13,9 +13,8 @@
 extern void radio_init(void);
 
 extern uint8_t radio_mac_address[8];
-extern uint8_t radio_tx_buffer[MAC_PACKET_MAX_LENGTH];
-extern volatile int radio_tx_pending;
 
-extern int radio_send_tx_buffer(void);
+extern void * radio_tx_buffer_get(unsigned usec_delay);
+extern int radio_tx_buffer_send(size_t len);
 
 #endif

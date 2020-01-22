@@ -22,6 +22,7 @@
 #endif
 
 uint8_t radio_mac_address[8];
+static volatile int radio_tx_pending;
 
 
 typedef enum {
@@ -111,7 +112,6 @@ static uint8_t rx_buffers[MAX_PKTS][MAC_PACKET_MAX_LENGTH];
 static uint8_t rx_buffer_copy[MAC_PACKET_MAX_LENGTH];
 
 uint8_t radio_tx_buffer[MAC_PACKET_MAX_LENGTH];
-volatile int radio_tx_pending;
 
 static void process_packet(RAIL_Handle_t rail)
 {
@@ -355,18 +355,51 @@ static mp_obj_t radio_rxbytes_get(void)
 
 MP_DEFINE_CONST_FUN_OBJ_0(radio_rxbytes_obj, radio_rxbytes_get);
 
+static void delay_us(unsigned usec)
+{
+	unsigned now = RAIL_GetTime();
+	unsigned end = now + usec;
+	if (end < now)
+	{
+		// wrapped! wait until the timer wrapps
+		while (RAIL_GetTime() > now)
+			;
+	}
+
+	// wait for time expiration
+	while (RAIL_GetTime() < end)
+		;
+}
+
+void * radio_tx_buffer_get(unsigned usec_delay)
+{
+	unsigned delay = 0;
+
+	while(radio_tx_pending)
+	{
+		if (delay >= usec_delay)
+			return NULL;
+		delay_us(100);
+		delay += 100;
+	}
+
+	return &radio_tx_buffer[1];
+}
+
 
 // length of message should be in radio_tx_buffer[0]
-// returns 0 if ok, -1 if not
-int radio_send_tx_buffer(void)
+// returns 0 if ok, non-zero if not
+int radio_tx_buffer_send(size_t len)
 {
+	// radio tx length including the 2 byte FCS at the end
+	radio_tx_buffer[0] = 2 + len;
+
 	CORE_ATOMIC_IRQ_DISABLE();
 
 	radio_tx_pending = 1;
 	radio_state = RADIO_TX;
 	RAIL_Idle(rail, RAIL_IDLE_ABORT, true);
 
-	const uint8_t len = radio_tx_buffer[0] - 2;
 	RAIL_SetTxFifo(rail, radio_tx_buffer, len + 1, len + 1);
 	static const RAIL_TxOptions_t txOpt = RAIL_TX_OPTIONS_DEFAULT;
 
@@ -384,6 +417,7 @@ int radio_send_tx_buffer(void)
 		radio_tx_pending = 0;
 
 	CORE_ATOMIC_IRQ_ENABLE();
+
 	return rc;
 }
 
@@ -396,25 +430,21 @@ static mp_obj_t radio_txbytes(mp_obj_t buf_obj)
 	if (radio_state == RADIO_UNINIT)
 		radio_init();
 
-	// should block instead?
-	//mp_raise_ValueError("tx pending");
-	unsigned timeout_counter = 0;
-	while (radio_tx_pending)
-	{
-		if (timeout_counter++ > 100000)
-			mp_raise_ValueError("tx timeout");
-	}
-		
+	// wait up to 10 ms for the buffer
+	void * const tx_buf = radio_tx_buffer_get(10000);
+	if (!tx_buf)
+		mp_raise_ValueError("tx timeout");
 
 	mp_buffer_info_t buf;
 	mp_get_buffer_raise(buf_obj, &buf, MP_BUFFER_READ);
-	unsigned len = buf.len;
-	if (len > MAC_PACKET_MAX_LENGTH)
-		mp_raise_ValueError("tx length too long");
-	radio_tx_buffer[0] = 2 + (uint8_t) buf.len; // include hardware FCS
-	memcpy(radio_tx_buffer+1, buf.buf, len);
+	const unsigned len = buf.len;
 
-	int rc = radio_send_tx_buffer();
+	if (len > MAC_PACKET_MAX_LENGTH - 2)
+		mp_raise_ValueError("tx length too long");
+
+	memcpy(tx_buf, buf.buf, len);
+
+	int rc = radio_tx_buffer_send(buf.len);
 	if (rc != 0)
 		mp_raise_ValueError("tx failed");
 

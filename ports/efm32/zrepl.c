@@ -43,24 +43,19 @@ void zrepl_send(const char * str, size_t len)
 	if (!zrepl_active)
 		return;
 
-	zrepl_packet_t * const msg = (void*) &radio_tx_buffer[1];
-	const size_t max_data_len = 32 - sizeof(*msg);
-
 	while(len)
 	{
-		// wait for any existing packets to go out
-		unsigned count = 1000;
-		while(radio_tx_pending)
-		{
-			if (count-- == 0)
-				return;
-		}
+		// wait up to 10 ms for any existing packets to go out
+		zrepl_packet_t * const msg = radio_tx_buffer_get(10000);
+		if (!msg)
+			return;
 
 		// fill in the header
 		msg->fcf = ZREPL_FCF_SEND;
 		msg->seq = zrepl_seq++;
 		memcpy(msg->mac, radio_mac_address, sizeof(msg->mac));
 
+		const size_t max_data_len = 60 - sizeof(*msg);
 		size_t data_len = len;
 		if (data_len > max_data_len)
 			data_len = max_data_len;
@@ -70,12 +65,9 @@ void zrepl_send(const char * str, size_t len)
 		len -= data_len;
 		str += data_len;
 
-		// radio tx length including the 2 byte FCS at the end
-		radio_tx_buffer[0] = 2 + data_len + sizeof(*msg);
-
 		// and put it on the wire; abort if there is a failure
-		if (radio_send_tx_buffer() != 0)
-			return;
+		if (radio_tx_buffer_send(sizeof(*msg) + data_len) != 0)
+			; // return;
 	}
 }
 

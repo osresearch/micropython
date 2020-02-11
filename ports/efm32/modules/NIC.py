@@ -2,6 +2,8 @@
 # Receives packets from the wire and prints the hex format to the console
 # Reads hex from the serial port and sends it on the wire
 
+import gc
+import os
 import sys
 import machine
 from ubinascii import hexlify, unhexlify
@@ -19,8 +21,12 @@ while True:
 		# representation
 		x = repr(hexlify(pkt))[2:-1]
 		print(x)
+		x = None
+		gc.collect()
 	if machine.stdio_poll():
 		y = sys.stdin.read(1)
+		if y == '\r':
+			continue
 		if y != '\n':
 			incoming += y
 			continue
@@ -31,4 +37,6 @@ while True:
 		except:
 			print("FAIL")
 		incoming = ''
+		x = None
+		gc.collect()
 	

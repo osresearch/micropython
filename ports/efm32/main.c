@@ -38,6 +38,7 @@
 #include "em_chip.h"
 #include "em_cmu.h"
 #include "em_emu.h"
+#include "em_usart.h"
 #include "zrepl.h"
 #include "radio.h"
 
@@ -147,14 +148,33 @@ void MP_WEAK __assert_func(const char *file, int line, const char *func, const c
 }
 #endif
 
+static void uart_str(const char * str)
+{
+	while(*str)
+		USART_Tx(USART1, *str++);
+}
 
-void NMI_Handler         (void) { printf("%s\n", __func__); while(1); }
-void MemManage_Handler   (void) { printf("%s\n", __func__); while(1); }
-void BusFault_Handler    (void) { printf("%s\n", __func__); while(1); }
-void UsageFault_Handler  (void) { printf("%s\n", __func__); while(1); }
-void SVC_Handler         (void) { printf("%s\n", __func__); while(1); }
-void PendSV_Handler      (void) { printf("%s\n", __func__); while(1); }
-void SysTick_Handler     (void) { printf("%s\n", __func__); while(1); }
+static void uart_u32(const unsigned val)
+{
+	static const char hexdigit[] = "0123456789abcdef";
+	USART_Tx(USART1, hexdigit[(val >> 28) & 0xF]);
+	USART_Tx(USART1, hexdigit[(val >> 24) & 0xF]);
+	USART_Tx(USART1, hexdigit[(val >> 20) & 0xF]);
+	USART_Tx(USART1, hexdigit[(val >> 16) & 0xF]);
+	USART_Tx(USART1, hexdigit[(val >> 12) & 0xF]);
+	USART_Tx(USART1, hexdigit[(val >>  8) & 0xF]);
+	USART_Tx(USART1, hexdigit[(val >>  4) & 0xF]);
+	USART_Tx(USART1, hexdigit[(val >>  0) & 0xF]);
+}
+
+
+void NMI_Handler         (void) { uart_str(__func__); while(1); }
+void MemManage_Handler   (void) { uart_str(__func__); while(1); }
+void BusFault_Handler    (void) { uart_str(__func__); while(1); }
+void UsageFault_Handler  (void) { uart_str(__func__); while(1); }
+void SVC_Handler         (void) { uart_str(__func__); while(1); }
+void PendSV_Handler      (void) { uart_str(__func__); while(1); }
+void SysTick_Handler     (void) { uart_str(__func__); while(1); }
 
 
 /*
@@ -166,13 +186,36 @@ void SysTick_Handler     (void) { printf("%s\n", __func__); while(1); }
 void HardFault_Handler   (void) __attribute__((__naked__));
 void HardFault_Handler   (void)
 {
-	// avoid busy wait calls in zrepl_send()
-	zrepl_active = 0;
+	// read MMFAR in GDB: x/xw 0xE000ED34
+	//const uint32_t fault_address = SCB->MMFAR;
+	//const uint32_t fault_register = SCB->CFSR;
 
-	printf("%s\n", __func__);
+	uart_str("!!!!!\r\n");
 
 	while(1)
 	{
+		// print it char by char
+		uart_str(__func__);
+		USART_Tx(USART1, ':');
+
+		uart_u32(SCB->CFSR);
+		if (SCB->CFSR & SCB_CFSR_BUSFAULTSR_Msk)
+		{
+			uart_str(" Bus=");
+			uart_u32(SCB->BFAR);
+		}
+
+		if (SCB->CFSR & SCB_CFSR_MEMFAULTSR_Msk)
+		{
+			uart_str(" Mem=");
+			uart_u32(SCB->MMFAR);
+		}
+
+		USART_Tx(USART1, '\r');
+		USART_Tx(USART1, '\n');
+
 		// should flash gpio0 LED or someting
+		for(unsigned long i = 0 ; i < (1 << 28) ; i++)
+			__asm__ __volatile__("nop");
 	}
 }

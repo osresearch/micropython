@@ -16,7 +16,7 @@ void mp_hal_pwm_init(void)
 	init_done = 1;
 
 	// Set Top Value to 
-	TIMER_TopSet(TIMER1, MP_TIMER_TOP);
+	TIMER_TopSet(TIMER1, MP_HAL_PWM_TOP);
 
 	// Create a timerInit object and set prescaler
 	TIMER_Init_TypeDef timerInit = TIMER_INIT_DEFAULT;

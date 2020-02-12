@@ -71,6 +71,7 @@ SRC_C = \
 	pwm.c \
 	moduos.c \
 	modmachine.c \
+	modutime.c \
 	modcrypto.c \
 	radio.c \
 	zrepl.c \
@@ -90,6 +91,7 @@ PYMOD_SRC_C = \
 	extmod/machine_pwm.c \
 	extmod/machine_spi.c \
 	extmod/machine_spiflash.c \
+	extmod/utime_mphal.c \
 	drivers/bus/softspi.c \
 	drivers/memory/spiflash.c \
 	\

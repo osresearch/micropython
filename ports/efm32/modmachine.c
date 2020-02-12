@@ -3,7 +3,8 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2013-2015 Damien P. George
+ * Portions copyright (c) 2013-2015 Damien P. George
+ * Copyright (c) 2020 Trammell Hudson
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -41,7 +42,6 @@
 #include "extmod/machine_spiflash.h"
 #include "zrepl.h"
 #include "em_core.h"
-#include "rail/rail.h"
 
 
 // need to implement these
@@ -95,14 +95,6 @@ machine_stdio_poll(void)
 MP_DEFINE_CONST_FUN_OBJ_0(machine_stdio_poll_obj, machine_stdio_poll);
 
 static mp_obj_t
-machine_microseconds(void)
-{
-	const uint32_t now = RAIL_GetTime();
-	return MP_OBJ_NEW_SMALL_INT(now);
-}
-MP_DEFINE_CONST_FUN_OBJ_0(machine_microseconds_obj, machine_microseconds);
-
-static mp_obj_t
 machine_zrepl(mp_obj_t active_obj)
 {
 	int active = mp_obj_int_get_checked(active_obj);
@@ -134,7 +126,6 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_SPIFlash),            MP_ROM_PTR(&mp_machine_spiflash_type) },
     { MP_ROM_QSTR(MP_QSTR_stdio_poll),          MP_ROM_PTR(&machine_stdio_poll_obj) },
     { MP_ROM_QSTR(MP_QSTR_zrepl),               MP_ROM_PTR(&machine_zrepl_obj) },
-    { MP_ROM_QSTR(MP_QSTR_microseconds),        MP_ROM_PTR(&machine_microseconds_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(machine_module_globals, machine_module_globals_table);

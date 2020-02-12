@@ -64,6 +64,7 @@
 #define MICROPY_PY_SYS_EXIT         (1)
 //#define MICROPY_PY_USELECT          (1)
 #define MICROPY_PY_MACHINE          (1)
+#define MICROPY_PY_UTIME_MP_HAL     (1)
 #define MICROPY_MODULE_FROZEN_MPY   (1)
 #define MICROPY_MODULE_WEAK_LINKS   (1)
 #define MICROPY_PERSISTENT_CODE_LOAD (1)
@@ -147,6 +148,7 @@ typedef struct _mp_hal_pwm_t * mp_hal_pwm_obj_t;
 
 // extra built in names to add to the global namespace
 extern const struct _mp_obj_module_t uos_module;
+extern const struct _mp_obj_module_t utime_module;
 extern const struct _mp_obj_module_t machine_module;
 
 #define MICROPY_PORT_BUILTINS \
@@ -154,6 +156,7 @@ extern const struct _mp_obj_module_t machine_module;
 
 #define MICROPY_PORT_BUILTIN_MODULES \
     { MP_ROM_QSTR(MP_QSTR_uos), MP_ROM_PTR(&uos_module) }, \
+    { MP_ROM_QSTR(MP_QSTR_utime), MP_ROM_PTR(&utime_module) }, \
     { MP_ROM_QSTR(MP_QSTR_machine), MP_ROM_PTR(&machine_module) }, \
 
 // We need to provide a declaration/definition of alloca()

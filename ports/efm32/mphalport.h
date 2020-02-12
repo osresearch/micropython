@@ -4,13 +4,7 @@
 #include <py/obj.h>
 #include "mpconfigport.h"
 
-static inline mp_uint_t mp_hal_ticks_ms(void) { return 0; }
-static inline void mp_hal_delay_us_fast(unsigned us)
-{
-	// should do a real timer
-	for(unsigned i = 0 ; i < us ; i++)
-		__asm__("nop");
-}
+#define mp_hal_delay_us_fast mp_hal_delay_us
 
 void mp_hal_set_interrupt_char(char c);
 

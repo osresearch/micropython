@@ -133,11 +133,17 @@ typedef long off_t;
 #define MP_PLAT_PRINT_STRN(str, len) mp_hal_stdout_tx_strn_cooked(str, len)
 
 // Map the pin names to their numbers (identity for now)
-typedef const struct efm_pin_t * mp_hal_pin_obj_t;
+typedef const struct _mp_hal_pin_t * mp_hal_pin_obj_t;
 #define mp_hal_pin_obj_t mp_hal_pin_obj_t
+
 #define mp_hal_get_pin_obj(pin) (pin)
 #define mp_hal_pin_name(p) (p)
 #define MP_HAL_PIN_FMT "%u"
+
+// PWM objects and maximum timer value
+typedef struct _mp_hal_pwm_t * mp_hal_pwm_obj_t;
+#define mp_hal_pwm_obj_t mp_hal_pwm_obj_t
+#define MP_HAL_PWM_TOP 1024
 
 // extra built in names to add to the global namespace
 extern const struct _mp_obj_module_t uos_module;

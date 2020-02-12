@@ -4,43 +4,36 @@
 #include "py/runtime.h"
 #include "py/binary.h"
 #include "py/mphal.h"
+#include "mpconfigport.h"
 #include "mphalport.h"
 #include "extmod/machine_pin.h"
 #include "em_gpio.h"
 
-// On the 10W LED driver, PB13 is the pin that PWMs the single output channel
-#define LED_PORT gpioPortB
-#define LED_PIN 13
+#define NO_PWM 0xFF
+#define PWM(channel,location)	((channel) << 4 | (location))
 
-struct efm_pin_t {
-	mp_obj_base_t base;
-	unsigned port;
-	unsigned pin;
-	unsigned gpio_id;
-};
-
-static const struct efm_pin_t pins[] = {
+static const struct _mp_hal_pin_t pins[] = {
 	// left side going down
-	{ {&machine_pin_type}, gpioPortA, 0,  0 },
-	{ {&machine_pin_type}, gpioPortA, 1,  1 },
-	{ {&machine_pin_type}, gpioPortB, 12, 2 },
-	{ {&machine_pin_type}, gpioPortB, 13, 3 }, // LED PWM
+	{ {&machine_pin_type}, gpioPortA, 0,  0, PWM(0,0) }, // PWM4
+	{ {&machine_pin_type}, gpioPortA, 1,  1, PWM(1,0) }, // PWM3
+	{ {&machine_pin_type}, gpioPortB, 12, 2, PWM(2,5) }, // PWM2, warm
+	{ {&machine_pin_type}, gpioPortB, 13, 3, PWM(3,5) }, // PWM1, on LED10W
 
 	// right side going up
-	{ {&machine_pin_type}, gpioPortB, 15, 4 },
-	{ {&machine_pin_type}, gpioPortB, 14, 5 },
-	{ {&machine_pin_type}, gpioPortC, 12, 6 }, // TX
-	{ {&machine_pin_type}, gpioPortC, 11, 7 }, // RX
-	{ {&machine_pin_type}, gpioPortF, 0,  8 }, // SWCLK
-	{ {&machine_pin_type}, gpioPortF, 1,  9 }, // SWD
-	{ {&machine_pin_type}, gpioPortF, 2,  10 }, // ?
-	{ {&machine_pin_type}, gpioPortF, 3,  11 }, // ?
+	{ {&machine_pin_type}, gpioPortB, 15, 4, NO_PWM },
+	{ {&machine_pin_type}, gpioPortB, 14, 5, NO_PWM },
+	{ {&machine_pin_type}, gpioPortC, 12, 6, NO_PWM }, // TX
+	{ {&machine_pin_type}, gpioPortC, 11, 7, NO_PWM }, // RX
+	{ {&machine_pin_type}, gpioPortF, 0,  8, NO_PWM }, // SWCLK
+	{ {&machine_pin_type}, gpioPortF, 1,  9, NO_PWM }, // SWD
+	{ {&machine_pin_type}, gpioPortF, 2,  10, NO_PWM }, // ?
+	{ {&machine_pin_type}, gpioPortF, 3,  11, NO_PWM }, // ?
 
 	// internal connections
-	{ {&machine_pin_type}, gpioPortB, 11,  12 }, // spi cs
-	{ {&machine_pin_type}, gpioPortD, 13,  13 }, // spi sck
-	{ {&machine_pin_type}, gpioPortD, 14,  14 }, // spi miso
-	{ {&machine_pin_type}, gpioPortD, 15,  15 }, // spi mosi
+	{ {&machine_pin_type}, gpioPortB, 11,  12, NO_PWM }, // spi cs
+	{ {&machine_pin_type}, gpioPortD, 13,  13, NO_PWM }, // spi sck
+	{ {&machine_pin_type}, gpioPortD, 14,  14, NO_PWM }, // spi miso
+	{ {&machine_pin_type}, gpioPortD, 15,  15, NO_PWM }, // spi mosi
 };
 
 #define NUM_PINS (sizeof(pins) / sizeof(*pins))

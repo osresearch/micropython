@@ -34,8 +34,6 @@
 // Forward dec'l
 extern const mp_obj_type_t machine_pwm_type;
 
-#define TIMER_TOP 1024
-
 /******************************************************************************/
 
 // MicroPython bindings for PWM
@@ -156,8 +154,8 @@ static mp_obj_t pwm_duty(size_t n_args, const mp_obj_t *args)
 	int duty = mp_obj_get_int(args[1]);
 	if (duty < 0)
 		duty = 0;
-	if (duty >= TIMER_TOP)
-		duty = TIMER_TOP - 1;
+	if (duty >= MP_HAL_PWM_TOP)
+		duty = MP_HAL_PWM_TOP - 1;
 
 	mp_hal_pwm_duty(self, duty);
 	return mp_const_none;

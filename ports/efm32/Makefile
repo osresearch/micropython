@@ -87,6 +87,7 @@ PYMOD_SRC_C = \
 	extmod/modubinascii.c \
 	extmod/machine_mem.c \
 	extmod/machine_pin.c \
+	extmod/machine_pwm.c \
 	extmod/machine_spi.c \
 	extmod/machine_spiflash.c \
 	drivers/bus/softspi.c \

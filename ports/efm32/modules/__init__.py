@@ -34,3 +34,15 @@ uos.mount(uos.VfsLfs2(bdev), '/')
 
 mount()
 
+def writefile(name, echo=True):
+	from sys import stdin
+	f = open(name, "w")
+	line = ''
+	while True:
+		c = stdin.read(1)
+		if c == chr(0x04):
+			break
+		if echo:
+			print(c, end='')
+		f.write(c)
+	f.close()

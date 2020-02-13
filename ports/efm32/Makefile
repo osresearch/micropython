@@ -26,7 +26,7 @@ EFM_DIR = $(EFM_FAMILY)
 
 # does this m4 have hardfloat?
 #LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/libgcc.a
-LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/v7e-m/fpv4-sp/softfp/libgcc.a
+LIBS += /usr/lib/gcc/arm-none-eabi/7.3.1/thumb/v7e-m/fpv4-sp/softfp/libgcc.a
 
 INC += -I$(TOP)
 INC += -I$(BUILD)
@@ -110,16 +110,16 @@ SRC_QSTR += $(PYMOD_SRC_C)
 # EMLIB from Silicon Labs for the Gecko boards
 # These are not included in the QSTR scan
 LIB_C += \
-	../$(EFM_DIR)/startup_$(EFM_FAMILY).c \
-	../$(EFM_DIR)/system_$(EFM_FAMILY).c \
-	../emlib/src/em_usart.c \
-	../emlib/src/em_cmu.c \
-	../emlib/src/em_gpio.c \
-	../emlib/src/em_system.c \
-	../emlib/src/em_core.c \
-	../emlib/src/em_emu.c \
-	../emlib/src/em_crypto.c \
-	../emlib/src/em_timer.c \
+	$(EFM_DIR)/startup_$(EFM_FAMILY).c \
+	$(EFM_DIR)/system_$(EFM_FAMILY).c \
+	emlib/src/em_usart.c \
+	emlib/src/em_cmu.c \
+	emlib/src/em_gpio.c \
+	emlib/src/em_system.c \
+	emlib/src/em_core.c \
+	emlib/src/em_emu.c \
+	emlib/src/em_crypto.c \
+	emlib/src/em_timer.c \
 
 OBJ = $(PY_CORE_O) \
 	$(addprefix $(BUILD)/, $(SRC_C:.c=.o)) \

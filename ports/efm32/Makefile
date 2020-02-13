@@ -26,6 +26,7 @@ EFM_DIR = $(EFM_FAMILY)
 
 # does this m4 have hardfloat?
 #LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/libgcc.a
+LIBS += /usr/lib/arm-none-eabi/newlib/thumb/v7e-m/fpv4-sp/softfp/libm.a
 LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/v7e-m/fpv4-sp/softfp/libgcc.a
 
 INC += -I$(TOP)

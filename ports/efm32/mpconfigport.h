@@ -144,7 +144,7 @@ typedef const struct _mp_hal_pin_t * mp_hal_pin_obj_t;
 // PWM objects and maximum timer value
 typedef struct _mp_hal_pwm_t * mp_hal_pwm_obj_t;
 #define mp_hal_pwm_obj_t mp_hal_pwm_obj_t
-#define MP_HAL_PWM_TOP 1024
+#define MP_HAL_PWM_TOP 8192
 
 // extra built in names to add to the global namespace
 extern const struct _mp_obj_module_t uos_module;

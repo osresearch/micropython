@@ -20,7 +20,7 @@ void mp_hal_pwm_init(void)
 
 	// Create a timerInit object and set prescaler
 	TIMER_Init_TypeDef timerInit = TIMER_INIT_DEFAULT;
-	timerInit.prescale = timerPrescale128;
+	timerInit.prescale = timerPrescale4;
  
 	TIMER_Init(TIMER1, &timerInit);
 }

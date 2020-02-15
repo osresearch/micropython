@@ -45,6 +45,11 @@
 extern uint8_t __StackTop;
 extern uint8_t __HeapBase;
 extern uint8_t __HeapLimit;
+int *__errno (void)
+{
+	static int _errno;
+	return &_errno;
+}
 
 int main(int argc, char **argv)
 {

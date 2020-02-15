@@ -24,10 +24,6 @@ EFM_FAMILY = efr32mg1p
 EFM_DEV = EFR32MG1P132F256GM32
 EFM_DIR = $(EFM_FAMILY)
 
-# does this m4 have hardfloat?
-#LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/libgcc.a
-LIBS += /usr/lib/gcc/arm-none-eabi/7.3.1/thumb/v7e-m/fpv4-sp/softfp/libgcc.a
-
 INC += -I$(TOP)
 INC += -I$(BUILD)
 
@@ -43,6 +39,11 @@ CFLAGS_CORTEX_M4 = \
 	-Wdouble-promotion \
 	-D$(EFM_DEV) \
 	-falign-functions=2 \
+
+LIBM	:= $(shell $(CROSS_COMPILE)gcc $(CFLAGS_CORTEX_M4) --print-file-name=libm.a)
+LIBGCC	:= $(shell $(CROSS_COMPILE)gcc $(CFLAGS_CORTEX_M4) --print-libgcc)
+
+LIBS += $(LIBM) $(LIBGCC)
 
 LINKER_SCRIPT = $(EFM_DIR)/$(EFM_FAMILY).ld
 

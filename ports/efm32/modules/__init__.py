@@ -1,3 +1,7 @@
+# Pre-populate the repl with these common useful things
+from machine import Pin, PWM, reset
+from time import sleep_ms
+
 def mount():
 	try:
 		import uos

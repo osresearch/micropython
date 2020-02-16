@@ -52,7 +52,7 @@ void zrepl_send(const char * str, size_t len)
 		// wait up to 10 ms for any existing packets to go out
 		// if there is a tx in process, we don't want to interfere
 		// with the transfer.
-		zrepl_packet_t * const msg = radio_tx_buffer_get(10000);
+		zrepl_packet_t * const msg = radio_tx_buffer_get(100000);
 		if (!msg)
 			break;
 

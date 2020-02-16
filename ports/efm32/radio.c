@@ -57,7 +57,7 @@ static const RAIL_DataConfig_t rail_data_config = {
 
 
 static const RAIL_IEEE802154_Config_t ieee802154_config = {
-	.promiscuousMode	= false,
+	.promiscuousMode	= true, // default to promiscuous since multipurpose is not supported
 	.isPanCoordinator	= false,
 	.framesMask		= RAIL_IEEE802154_ACCEPT_STANDARD_FRAMES,
 	.ackConfig = {

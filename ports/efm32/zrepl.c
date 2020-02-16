@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include "radio.h"
+#include "zrepl.h"
 
 extern uint8_t radio_mac_address[];
 extern void uart_recv(uint8_t c);

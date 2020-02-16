@@ -158,8 +158,10 @@ static void process_packet(RAIL_Handle_t rail)
 			// allow the zrepl to process this message
 			// length is in the first byte and includes
 			// an extra two bytes at the end that we ignore
-			zrepl_recv(rx_buffer+1, *rx_buffer - 2);
-
+			if (zrepl_recv(rx_buffer+1, *rx_buffer - 2))
+			{
+				// consumed by zrepl, do not forward it
+			} else
 			if (write_index == MAX_PKTS - 1)
 				rx_buffer_write = 0;
 			else

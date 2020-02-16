@@ -7,6 +7,7 @@ extern int zrepl_active;
 extern void zrepl_send(const char * str, size_t len);
 
 // forwards characters from the 802.15.4 message into the uart recv function
-extern void zrepl_recv(const void * msg, size_t len);
+// returns 0 if not a zrepl message, 1 if it was consumed by the zrepl
+extern int zrepl_recv(const void * msg, size_t len);
 
 #endif

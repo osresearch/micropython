@@ -6,17 +6,30 @@
 import os
 import sys
 import serial
+import threading
+import readline
+from time import sleep
 from select import select
 from binascii import unhexlify, hexlify
 #from ZbPy import Parser
 
 verbose = True
-device = "/dev/ttyUSB0"
+verbose = False
+device = "/dev/ttyACM1"
 speed = 115200
 dev = serial.Serial(device, speed)
-dest = unhexlify(b'58df3efeff57b414')
+dest = b'\x8co\xdb\xfe\xff\xd7k\x08'
 
-line = b'';
+class InputThread(threading.Thread):
+    def __init__(self, callback, name='input-thread'):
+        self.callback = callback
+        super(InputThread, self).__init__(name=name)
+        self.start()
+
+    def run(self):
+	# waits to get input + Return
+        while True:
+            self.callback()
 
 def process_line(line):	
 	# ignore the echos back to us
@@ -43,7 +56,8 @@ def process_line(line):
 	#(ieee,t) = Parser.parse(unhexlify(line))
 	#print(ieee)
 
-def process_serial(dev):
+line = b''
+def process_serial():
 	global line
 	c = dev.read(1)
 	if c is None:
@@ -63,30 +77,39 @@ def process_serial(dev):
 
 user_seq = 0
 
-def process_stdio():
+def process_stdio(line):
 	global user_seq
-	user_data = b''
-	while select([sys.stdin],[],[],0)[0]:
-		user_data += bytes(sys.stdin.read(1), "utf-8")
-	if user_data == b'':
-		return
-	msg = bytearray(2 + len(dest) + len(user_data))
-	msg[0] = 0x35
-	msg[1] = user_seq & 0xFF
-	msg[2] = dest[0]
-	msg[3] = dest[1]
-	msg[4] = dest[2]
-	msg[5] = dest[3]
-	msg[6] = dest[4]
-	msg[7] = dest[5]
-	msg[8] = dest[6]
-	msg[9] = dest[7]
-	msg[10:] = user_data
-	user_seq += 1
-	hexmsg = hexlify(msg)
-	print(hexmsg)
-	dev.write(hexmsg + b"\n")
 
+	# serial line endings
+	line += "\r\n"
+	user_data = bytes(line, 'utf-8')
+	chunk_size = 16
+
+	for offset in range(0,len(user_data),chunk_size):
+		chunk = user_data[offset:offset+chunk_size]
+		msg = bytearray(2 + len(dest) + len(chunk))
+		msg[0] = 0x35
+		msg[1] = user_seq & 0xFF
+		msg[2] = dest[0]
+		msg[3] = dest[1]
+		msg[4] = dest[2]
+		msg[5] = dest[3]
+		msg[6] = dest[4]
+		msg[7] = dest[5]
+		msg[8] = dest[6]
+		msg[9] = dest[7]
+		msg[10:] = chunk
+		user_seq += 1
+		hexmsg = hexlify(msg)
+		#print(hexmsg)
+		dev.write(hexmsg + b"\n")
+
+		# delay for a few ms
+		sleep(0.1)
+
+# start the input thread
+inputthread = InputThread(process_serial)
+
+# spin on user input
 while True:
-	process_serial(dev)
-	process_stdio()
+	process_stdio(input())

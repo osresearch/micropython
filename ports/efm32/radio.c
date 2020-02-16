@@ -7,6 +7,7 @@
 #include "py/runtime.h"
 #include "py/binary.h"
 #include "py/objarray.h"
+#include "py/mphal.h"
 #include "em_gpio.h"
 #include "em_cmu.h"
 #include "em_core.h"
@@ -147,17 +148,23 @@ static void process_packet(RAIL_Handle_t rail)
 
 		unsigned write_index = rx_buffer_write;
 		uint8_t * rx_buffer = rx_buffers[write_index];
-		RAIL_CopyRxPacket(rx_buffer, &info); // puts the length in byte 0
+		if (info.packetBytes > MAC_PACKET_MAX_LENGTH - 2)
+		{
+			// should never happen?
+			printf("rx %d\n", info.packetBytes);
+		} else {
+			RAIL_CopyRxPacket(rx_buffer, &info); // puts the length in byte 0
 
-		// allow the zrepl to process this message
-		// length is in the first byte and includes
-		// an extra two bytes at the end that we ignore
-		zrepl_recv(rx_buffer+1, *rx_buffer - 2);
+			// allow the zrepl to process this message
+			// length is in the first byte and includes
+			// an extra two bytes at the end that we ignore
+			zrepl_recv(rx_buffer+1, *rx_buffer - 2);
 
-		if (write_index == MAX_PKTS - 1)
-			rx_buffer_write = 0;
-		else
-			rx_buffer_write = write_index + 1;
+			if (write_index == MAX_PKTS - 1)
+				rx_buffer_write = 0;
+			else
+				rx_buffer_write = write_index + 1;
+		}
 
 /*
 		// cancel the ACK if the sender did not request one
@@ -305,7 +312,9 @@ MP_DEFINE_CONST_FUN_OBJ_0(radio_init_obj, py_radio_init);
 
 
 /*
- * Copy the rx buffer into the passed in argument.
+ * Create a byte array and copy the received bytes into it.
+ * This was using a long-lived buffer, but that was causing
+ * GC issues. It might be worth revisiting to avoid the allocation cost.
  */
 static mp_obj_t radio_rxbytes_get(void)
 {
@@ -315,14 +324,13 @@ static mp_obj_t radio_rxbytes_get(void)
 	if (rx_buffer_write == rx_buffer_read)
 		return mp_const_none;
 
-	static mp_obj_t rx_buffer_bytearray;
-	if (!rx_buffer_bytearray)
-		rx_buffer_bytearray = mp_obj_new_bytearray_by_ref(sizeof(rx_buffer_copy), rx_buffer_copy);
-	if (!rx_buffer_bytearray)
+	mp_obj_array_t * buf = mp_obj_new_bytearray_by_ref(
+		sizeof(rx_buffer_copy), rx_buffer_copy);
+	if (!buf)
 		return mp_const_none;
 
 	// resize the buffer for the return code and copy into it
-	mp_obj_array_t * buf = MP_OBJ_TO_PTR(rx_buffer_bytearray);
+	//mp_obj_array_t * buf = MP_OBJ_TO_PTR(rx_buffer_bytearray);
 	unsigned read_index = rx_buffer_read;
 	const uint8_t * const rx_buffer = rx_buffers[read_index];
 
@@ -330,10 +338,10 @@ static mp_obj_t radio_rxbytes_get(void)
 
 	const uint8_t len = rx_buffer[0];
 
-	if (len > MAC_PACKET_MAX_LENGTH)
+	if (len > MAC_PACKET_MAX_LENGTH - 2)
 	{
 		// discard this packet? should signal something
-		buf->len = MAC_PACKET_MAX_LENGTH;
+		buf->len = MAC_PACKET_MAX_LENGTH - 2;
 	} else
 	if (len < 2)
 	{
@@ -350,36 +358,28 @@ static mp_obj_t radio_rxbytes_get(void)
 
 	CORE_ATOMIC_IRQ_ENABLE();
 
-	return rx_buffer_bytearray;
+	return MP_OBJ_FROM_PTR(buf);
 }
 
 MP_DEFINE_CONST_FUN_OBJ_0(radio_rxbytes_obj, radio_rxbytes_get);
 
-static void delay_us(unsigned usec)
-{
-	unsigned now = RAIL_GetTime();
-	unsigned end = now + usec;
-	if (end < now)
-	{
-		// wrapped! wait until the timer wrapps
-		while (RAIL_GetTime() > now)
-			;
-	}
-
-	// wait for time expiration
-	while (RAIL_GetTime() < end)
-		;
-}
 
 void * radio_tx_buffer_get(unsigned usec_delay)
 {
 	unsigned delay = 0;
 
+	// if we don't get a packet after a while, assume that
+	// something has hung and return the packet anyway
+	// should flag this
 	while(radio_tx_pending)
 	{
 		if (delay >= usec_delay)
-			return NULL;
-		delay_us(100);
+		{
+			printf("tx stall\n");
+			break;
+		}
+
+		mp_hal_delay_us(100);
 		delay += 100;
 	}
 
@@ -430,17 +430,17 @@ static mp_obj_t radio_txbytes(mp_obj_t buf_obj)
 	if (radio_state == RADIO_UNINIT)
 		radio_init();
 
-	// wait up to 10 ms for the buffer
-	void * const tx_buf = radio_tx_buffer_get(10000);
-	if (!tx_buf)
-		mp_raise_ValueError("tx timeout");
-
 	mp_buffer_info_t buf;
 	mp_get_buffer_raise(buf_obj, &buf, MP_BUFFER_READ);
 	const unsigned len = buf.len;
 
 	if (len > MAC_PACKET_MAX_LENGTH - 2)
 		mp_raise_ValueError("tx length too long");
+
+	// wait up to 1 ms for the buffer
+	void * const tx_buf = radio_tx_buffer_get(1000);
+	if (!tx_buf)
+		mp_raise_ValueError("tx timeout");
 
 	memcpy(tx_buf, buf.buf, len);
 

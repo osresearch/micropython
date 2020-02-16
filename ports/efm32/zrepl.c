@@ -43,12 +43,17 @@ void zrepl_send(const char * str, size_t len)
 	if (!zrepl_active)
 		return;
 
+	// turn it off for now
+	zrepl_active = 0;
+
 	while(len)
 	{
 		// wait up to 10 ms for any existing packets to go out
+		// if there is a tx in process, we don't want to interfere
+		// with the transfer.
 		zrepl_packet_t * const msg = radio_tx_buffer_get(10000);
 		if (!msg)
-			return;
+			break;
 
 		// fill in the header
 		msg->fcf = ZREPL_FCF_SEND;
@@ -69,6 +74,9 @@ void zrepl_send(const char * str, size_t len)
 		if (radio_tx_buffer_send(sizeof(*msg) + data_len) != 0)
 			; // return;
 	}
+
+	// turn it back on
+	zrepl_active = 1;
 }
 
 // forwards characters from the 802.15.4 message into the uart recv function

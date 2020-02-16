@@ -94,10 +94,11 @@ machine_stdio_poll(void)
 }
 MP_DEFINE_CONST_FUN_OBJ_0(machine_stdio_poll_obj, machine_stdio_poll);
 
+
 static mp_obj_t
 machine_zrepl(mp_obj_t active_obj)
 {
-	int active = mp_obj_int_get_checked(active_obj);
+	int active = active_obj != mp_const_false; // mp_obj_int_get_checked(active_obj);
 	int old = zrepl_active;
 	zrepl_active = active;
 	if (old)
@@ -105,7 +106,9 @@ machine_zrepl(mp_obj_t active_obj)
 	else
 		return mp_const_false;
 }
+
 MP_DEFINE_CONST_FUN_OBJ_1(machine_zrepl_obj, machine_zrepl);
+
 
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_umachine) },

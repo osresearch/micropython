@@ -33,6 +33,7 @@
 #include "py/runtime.h"
 #include "py/repl.h"
 #include "py/gc.h"
+#include "py/stackctrl.h"
 #include "py/mperrno.h"
 #include "lib/utils/pyexec.h"
 #include "em_chip.h"
@@ -90,9 +91,21 @@ int main(int argc, char **argv)
 	zrepl_active = 1;
 
 soft_reset:
+	if (1)
+	{
+		// should do something there
+	}
 
     //gc_init(heap, heap + sizeof(heap));
-    gc_init(&__HeapBase, &__HeapLimit);
+    uint8_t * const heap_base = &__HeapBase;
+    size_t heap_size = &__HeapLimit - heap_base;
+    uint8_t * const stack_top = &__StackTop;
+    size_t stack_size = stack_top - &__HeapLimit;
+    //printf("heap=%p + %08x stack=%p - %08x\n", heap_base, heap_size, stack_top, stack_size);
+    //mp_pystack_init(&__HeapLimit, &__StackTop);
+    mp_stack_set_top(stack_top);
+    mp_stack_set_limit(stack_size);
+    gc_init(heap_base, heap_base + heap_size);
     mp_init();
 
     // run boot-up scripts
@@ -127,32 +140,6 @@ void _start(void)
 	main(0, NULL);
 }
 
-
-void gc_collect(void) {
-    // WARNING: This gc_collect implementation doesn't try to get root
-    // pointers from CPU registers, and thus may function incorrectly.
-    void *dummy;
-    gc_collect_start();
-    gc_collect_root(&dummy, ((mp_uint_t)&__StackTop - (mp_uint_t)&dummy) / sizeof(mp_uint_t));
-    gc_collect_end();
-    //gc_dump_info();
-}
-
-void nlr_jump_fail(void *val) {
-    while (1);
-}
-
-void NORETURN __fatal_error(const char *msg) {
-    while (1);
-}
-
-#ifndef NDEBUG
-void MP_WEAK __assert_func(const char *file, int line, const char *func, const char *expr) {
-    printf("Assertion '%s' failed, at file %s:%d\n", expr, file, line);
-    __fatal_error("Assertion failed");
-}
-#endif
-
 static void uart_str(const char * str)
 {
 	while(*str)
@@ -172,6 +159,52 @@ static void uart_u32(const unsigned val)
 	USART_Tx(USART1, hexdigit[(val >>  0) & 0xF]);
 }
 
+
+
+void gc_collect(void) {
+    // WARNING: This gc_collect implementation doesn't try to get root
+    // pointers from CPU registers, and thus may function incorrectly.
+    void *dummy;
+    gc_collect_start();
+    gc_collect_root(&dummy, ((mp_uint_t)&__StackTop - (mp_uint_t)&dummy) / sizeof(mp_uint_t));
+    gc_collect_end();
+    //gc_dump_info();
+}
+
+static void __attribute__((__noreturn__))
+reboot_delay(void)
+{
+	for(int i = 0 ; i < (1 <<28) ; i++)
+		__asm__ __volatile__("nop");
+
+	NVIC_SystemReset();
+	while(1)
+		;
+}
+
+void
+nlr_jump_fail(void *val)
+{
+	uart_str("nlr_jump_fail: ");
+	uart_u32((uint32_t) val);
+	uart_str(" !!!\r\n");
+
+	reboot_delay();
+}
+
+void NORETURN __fatal_error(const char *msg) {
+	uart_str("!!! FATAL ERROR: ");
+	uart_str(msg);
+	
+	reboot_delay();
+}
+
+#ifndef NDEBUG
+void MP_WEAK __assert_func(const char *file, int line, const char *func, const char *expr) {
+    printf("Assertion '%s' failed, at file %s:%d\n", expr, file, line);
+    __fatal_error("Assertion failed");
+}
+#endif
 
 void NMI_Handler         (void) { uart_str(__func__); while(1); }
 void MemManage_Handler   (void) { uart_str(__func__); while(1); }
@@ -219,8 +252,6 @@ void HardFault_Handler   (void)
 		USART_Tx(USART1, '\r');
 		USART_Tx(USART1, '\n');
 
-		// should flash gpio0 LED or someting
-		for(unsigned long i = 0 ; i < (1 << 28) ; i++)
-			__asm__ __volatile__("nop");
+		reboot_delay();
 	}
 }

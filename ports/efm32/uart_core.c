@@ -174,7 +174,13 @@ static void uart_putc(uint8_t c, bool blocking)
 		break;
 	} while(blocking);
 #else
-	USART_Tx(USART, *str++);
+	while (!(USART->STATUS & USART_STATUS_TXBL))
+	{
+		if (!blocking)
+			return;
+	}
+
+	USART_Tx(USART, c);
 #endif
 }
 

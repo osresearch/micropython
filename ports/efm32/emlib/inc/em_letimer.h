@@ -1,32 +1,31 @@
 /***************************************************************************//**
- * @file em_letimer.h
+ * @file
  * @brief Low Energy Timer (LETIMER) peripheral API
- * @version 5.1.2
+ * @version 5.8.0
  *******************************************************************************
- * @section License
- * <b>Copyright 2016 Silicon Laboratories, Inc. http://www.silabs.com</b>
+ * # License
+ * <b>Copyright 2018 Silicon Laboratories Inc. www.silabs.com</b>
  *******************************************************************************
+ *
+ * SPDX-License-Identifier: Zlib
+ *
+ * The licensor of this software is Silicon Laboratories Inc.
+ *
+ * This software is provided 'as-is', without any express or implied
+ * warranty. In no event will the authors be held liable for any damages
+ * arising from the use of this software.
  *
  * Permission is granted to anyone to use this software for any purpose,
  * including commercial applications, and to alter it and redistribute it
  * freely, subject to the following restrictions:
  *
  * 1. The origin of this software must not be misrepresented; you must not
- *    claim that you wrote the original software.
+ *    claim that you wrote the original software. If you use this software
+ *    in a product, an acknowledgment in the product documentation would be
+ *    appreciated but is not required.
  * 2. Altered source versions must be plainly marked as such, and must not be
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
- *
- * DISCLAIMER OF WARRANTY/LIMITATION OF REMEDIES: Silicon Labs has no
- * obligation to support this Software. Silicon Labs is providing the
- * Software "AS IS", with no express or implied warranties of any kind,
- * including, but not limited to, any implied warranties of merchantability
- * or fitness for any particular purpose or warranties against infringement
- * of any proprietary rights of a third party.
- *
- * Silicon Labs will not be liable for any consequential, incidental, or
- * special damages, or any other relief, or for any claim by any third party,
- * arising from your use of this Software.
  *
  ******************************************************************************/
 
@@ -56,8 +55,7 @@ extern "C" {
  ******************************************************************************/
 
 /** Repeat mode. */
-typedef enum
-{
+typedef enum {
   /** Count until stopped by SW. */
   letimerRepeatFree     = _LETIMER_CTRL_REPMODE_FREE,
   /** Count REP0 times. */
@@ -74,10 +72,8 @@ typedef enum
   letimerRepeatDouble   = _LETIMER_CTRL_REPMODE_DOUBLE
 } LETIMER_RepeatMode_TypeDef;
 
-
 /** Underflow action on output. */
-typedef enum
-{
+typedef enum {
   /** No output action. */
   letimerUFOANone   = _LETIMER_CTRL_UFOA0_NONE,
   /** Toggle output when counter underflows. */
@@ -93,9 +89,8 @@ typedef enum
  ******************************************************************************/
 
 /** LETIMER initialization structure. */
-typedef struct
-{
-  bool                       enable;         /**< Start counting when init completed. */
+typedef struct {
+  bool                       enable;         /**< Start counting when initialization completes. */
   bool                       debugRun;       /**< Counter shall keep running during debug halt. */
 #if defined(LETIMER_CTRL_RTCC0TEN)
   bool                       rtcComp0Enable; /**< Start counting on RTC COMP0 match. */
@@ -108,37 +103,40 @@ typedef struct
   LETIMER_UFOA_TypeDef       ufoa0;          /**< Underflow output 0 action. */
   LETIMER_UFOA_TypeDef       ufoa1;          /**< Underflow output 1 action. */
   LETIMER_RepeatMode_TypeDef repMode;        /**< Repeat mode. */
+  uint32_t                   topValue;       /**< Top value. Counter wraps when top value matches counter value is reached. */
 } LETIMER_Init_TypeDef;
 
-/** Default config for LETIMER init structure. */
+/** Default configuration for LETIMER initialization structure. */
 #if defined(LETIMER_CTRL_RTCC0TEN)
-#define LETIMER_INIT_DEFAULT                                                  \
-{                                                                             \
-  true,               /* Enable timer when init complete. */                  \
-  false,              /* Stop counter during debug halt. */                   \
-  false,              /* Do not start counting on RTC COMP0 match. */         \
-  false,              /* Do not start counting on RTC COMP1 match. */         \
-  false,              /* Do not load COMP0 into CNT on underflow. */          \
-  false,              /* Do not load COMP1 into COMP0 when REP0 reaches 0. */ \
-  0,                  /* Idle value 0 for output 0. */                        \
-  0,                  /* Idle value 0 for output 1. */                        \
-  letimerUFOANone,    /* No action on underflow on output 0. */               \
-  letimerUFOANone,    /* No action on underflow on output 1. */               \
-  letimerRepeatFree   /* Count until stopped by SW. */                        \
-}
+#define LETIMER_INIT_DEFAULT                                                   \
+  {                                                                            \
+    true,              /* Enable timer when initialization completes. */       \
+    false,             /* Stop counter during debug halt. */                   \
+    false,             /* Do not start counting on RTC COMP0 match. */         \
+    false,             /* Do not start counting on RTC COMP1 match. */         \
+    false,             /* Do not load COMP0 into CNT on underflow. */          \
+    false,             /* Do not load COMP1 into COMP0 when REP0 reaches 0. */ \
+    0,                 /* Idle value 0 for output 0. */                        \
+    0,                 /* Idle value 0 for output 1. */                        \
+    letimerUFOANone,   /* No action on underflow on output 0. */               \
+    letimerUFOANone,   /* No action on underflow on output 1. */               \
+    letimerRepeatFree, /* Count until stopped by SW. */                        \
+    0                  /* Use default top Value. */                            \
+  }
 #else
-#define LETIMER_INIT_DEFAULT                                                  \
-{                                                                             \
-  true,               /* Enable timer when init complete. */                  \
-  false,              /* Stop counter during debug halt. */                   \
-  false,              /* Do not load COMP0 into CNT on underflow. */          \
-  false,              /* Do not load COMP1 into COMP0 when REP0 reaches 0. */ \
-  0,                  /* Idle value 0 for output 0. */                        \
-  0,                  /* Idle value 0 for output 1. */                        \
-  letimerUFOANone,    /* No action on underflow on output 0. */               \
-  letimerUFOANone,    /* No action on underflow on output 1. */               \
-  letimerRepeatFree   /* Count until stopped by SW. */                        \
-}
+#define LETIMER_INIT_DEFAULT                                                   \
+  {                                                                            \
+    true,              /* Enable timer when initialization completes. */       \
+    false,             /* Stop counter during debug halt. */                   \
+    false,             /* Do not load COMP0 into CNT on underflow. */          \
+    false,             /* Do not load COMP1 into COMP0 when REP0 reaches 0. */ \
+    0,                 /* Idle value 0 for output 0. */                        \
+    0,                 /* Idle value 0 for output 1. */                        \
+    letimerUFOANone,   /* No action on underflow on output 0. */               \
+    letimerUFOANone,   /* No action on underflow on output 1. */               \
+    letimerRepeatFree, /* Count until stopped by SW. */                        \
+    0                  /* Use default top Value. */                            \
+  }
 #endif
 
 /*******************************************************************************
@@ -149,30 +147,16 @@ uint32_t LETIMER_CompareGet(LETIMER_TypeDef *letimer, unsigned int comp);
 void LETIMER_CompareSet(LETIMER_TypeDef *letimer,
                         unsigned int comp,
                         uint32_t value);
-
-
-/***************************************************************************//**
- * @brief
- *   Get LETIMER counter value.
- *
- * @param[in] letimer
- *   Pointer to LETIMER peripheral register block.
- *
- * @return
- *   Current LETIMER counter value.
- ******************************************************************************/
-__STATIC_INLINE uint32_t LETIMER_CounterGet(LETIMER_TypeDef *letimer)
-{
-  return(letimer->CNT);
-}
-
+uint32_t LETIMER_CounterGet(LETIMER_TypeDef *letimer);
+#if !defined(_EFM32_GECKO_FAMILY)
+void LETIMER_CounterSet(LETIMER_TypeDef *letimer, uint32_t value);
+#endif
 
 void LETIMER_Enable(LETIMER_TypeDef *letimer, bool enable);
 #if defined(_LETIMER_FREEZE_MASK)
 void LETIMER_FreezeEnable(LETIMER_TypeDef *letimer, bool enable);
 #endif
 void LETIMER_Init(LETIMER_TypeDef *letimer, const LETIMER_Init_TypeDef *init);
-
 
 /***************************************************************************//**
  * @brief
@@ -188,9 +172,12 @@ void LETIMER_Init(LETIMER_TypeDef *letimer, const LETIMER_Init_TypeDef *init);
  ******************************************************************************/
 __STATIC_INLINE void LETIMER_IntClear(LETIMER_TypeDef *letimer, uint32_t flags)
 {
+#if defined (LETIMER_HAS_SET_CLEAR)
+  letimer->IF_CLR = flags;
+#else
   letimer->IFC = flags;
+#endif
 }
-
 
 /***************************************************************************//**
  * @brief
@@ -208,18 +195,17 @@ __STATIC_INLINE void LETIMER_IntDisable(LETIMER_TypeDef *letimer, uint32_t flags
   letimer->IEN &= ~flags;
 }
 
-
 /***************************************************************************//**
  * @brief
  *   Enable one or more LETIMER interrupts.
  *
  * @note
  *   Depending on the use, a pending interrupt may already be set prior to
- *   enabling the interrupt. Consider using LETIMER_IntClear() prior to enabling
- *   if such a pending interrupt should be ignored.
+ *   enabling the interrupt. To ignore a pending interrupt, consider using
+ *   LETIMER_IntClear() prior to enabling the interrupt.
  *
  * @param[in] letimer
- *   Pointer to LETIMER peripheral register block.
+ *   Pointer to the LETIMER peripheral register block.
  *
  * @param[in] flags
  *   LETIMER interrupt sources to enable. Use a bitwise logic OR combination of
@@ -230,26 +216,24 @@ __STATIC_INLINE void LETIMER_IntEnable(LETIMER_TypeDef *letimer, uint32_t flags)
   letimer->IEN |= flags;
 }
 
-
 /***************************************************************************//**
  * @brief
  *   Get pending LETIMER interrupt flags.
  *
  * @note
- *   The event bits are not cleared by the use of this function.
+ *   Event bits are not cleared by the use of this function.
  *
  * @param[in] letimer
  *   Pointer to LETIMER peripheral register block.
  *
  * @return
  *   LETIMER interrupt sources pending. A bitwise logic OR combination of
- *    valid interrupt flags for the LETIMER module (LETIMER_IF_nnn).
+ *   valid interrupt flags for the LETIMER module (LETIMER_IF_nnn).
  ******************************************************************************/
 __STATIC_INLINE uint32_t LETIMER_IntGet(LETIMER_TypeDef *letimer)
 {
   return letimer->IF;
 }
-
 
 /***************************************************************************//**
  * @brief
@@ -259,14 +243,14 @@ __STATIC_INLINE uint32_t LETIMER_IntGet(LETIMER_TypeDef *letimer)
  *   Useful for handling more interrupt sources in the same interrupt handler.
  *
  * @note
- *   The event bits are not cleared by the use of this function.
+ *   Event bits are not cleared by the use of this function.
  *
  * @param[in] letimer
  *   Pointer to LETIMER peripheral register block.
  *
  * @return
  *   Pending and enabled LETIMER interrupt sources.
- *   The return value is the bitwise AND combination of
+ *   Return value is the bitwise AND combination of
  *   - the OR combination of enabled interrupt sources in LETIMER_IEN_nnn
  *   register (LETIMER_IEN_nnn) and
  *   - the OR combination of valid interrupt flags of the LETIMER module
@@ -276,7 +260,6 @@ __STATIC_INLINE uint32_t LETIMER_IntGetEnabled(LETIMER_TypeDef *letimer)
 {
   uint32_t ien;
 
-
   /* Store flags in temporary variable in order to define explicit order
    * of volatile accesses. */
   ien = letimer->IEN;
@@ -284,7 +267,6 @@ __STATIC_INLINE uint32_t LETIMER_IntGetEnabled(LETIMER_TypeDef *letimer)
   /* Bitwise AND of pending and enabled interrupts */
   return letimer->IF & ien;
 }
-
 
 /***************************************************************************//**
  * @brief
@@ -299,16 +281,21 @@ __STATIC_INLINE uint32_t LETIMER_IntGetEnabled(LETIMER_TypeDef *letimer)
  ******************************************************************************/
 __STATIC_INLINE void LETIMER_IntSet(LETIMER_TypeDef *letimer, uint32_t flags)
 {
+#if defined (LETIMER_HAS_SET_CLEAR)
+  letimer->IF_SET = flags;
+#else
   letimer->IFS = flags;
+#endif
 }
-
 
 uint32_t LETIMER_RepeatGet(LETIMER_TypeDef *letimer, unsigned int rep);
 void LETIMER_RepeatSet(LETIMER_TypeDef *letimer,
                        unsigned int rep,
                        uint32_t value);
 void LETIMER_Reset(LETIMER_TypeDef *letimer);
-
+void LETIMER_SyncWait(LETIMER_TypeDef *letimer);
+void LETIMER_TopSet(LETIMER_TypeDef *letimer, uint32_t value);
+uint32_t LETIMER_TopGet(LETIMER_TypeDef *letimer);
 
 /** @} (end addtogroup LETIMER) */
 /** @} (end addtogroup emlib) */

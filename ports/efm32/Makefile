@@ -16,6 +16,10 @@ endif
 INC += -I.
 INC += -Igecko_sdk/include
 INC += -Iemlib/inc
+INC += -D__NO_SYSTEM_INIT
+INC += -D__STARTUP_CLEAR_BSS
+INC += -D__STACK_SIZE=0x1000
+INC += -D__HEAP_SIZE=0x6000
 # should the radio lib be optional?
 INC += -Irail
 LIBS += rail/TARGET_EFR32_1/librail_efr32xg1_release.a

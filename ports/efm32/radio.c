@@ -506,11 +506,27 @@ static mp_obj_t radio_address(mp_obj_t short_addr_obj, mp_obj_t pan_id_obj)
 
 MP_DEFINE_CONST_FUN_OBJ_2(radio_address_obj, radio_address);
 
+
+static mp_obj_t mp_radio_channel(mp_obj_t channel_obj)
+{
+	if (radio_state == RADIO_UNINIT)
+		radio_init();
+
+	unsigned channel = mp_obj_int_get_checked(channel_obj);
+	radio_channel(channel);
+
+	return mp_const_none;
+}
+
+MP_DEFINE_CONST_FUN_OBJ_1(radio_channel_obj, mp_radio_channel);
+
+
 STATIC const mp_map_elem_t radio_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_radio) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_init), (mp_obj_t) &radio_init_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_promiscuous), (mp_obj_t) &radio_promiscuous_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_address), (mp_obj_t) &radio_address_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_channel), (mp_obj_t) &radio_channel_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_mac), (mp_obj_t) &radio_mac_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_rx), (mp_obj_t) &radio_rxbytes_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_tx), (mp_obj_t) &radio_txbytes_obj },

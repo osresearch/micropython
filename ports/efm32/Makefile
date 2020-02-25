@@ -24,7 +24,8 @@ EFM_DIR := $(GECKO_SDK)/device/$(EFM_FAMILY_UC)
 EMLIB_DIR := $(GECKO_SDK)/emlib/src
 RAIL_DIR := $(GECKO_SDK)/radio/rail_lib
 
-# This could also be done with a git submodule, although
+# Checkout the efm32-base submodule if it is not
+# already checked out
 $(shell if [ ! -d "../../$(GECKO_SDK)" ]; then \
 	echo >&2 "gecko_sdk missing: checkout efm32-base" ; \
 	git submodule update lib/efm32-base ; \
@@ -168,6 +169,12 @@ FROZEN_MPY_DIR = modules
 
 mpy-cross: $(MPY_TOOL_BIN)
 	$(MAKE) -C ../../mpy-cross
+
+# Force a build of mpy-cross if it is not already built
+$(shell if [ ! -x "$(MPY_TOOL_BIN)" ]; then \
+	$(MAKE) -C ../../mpy-cross ; \
+fi)
+
 
 $(BUILD)/firmware.elf: $(OBJ)
 	$(ECHO) "LINK $@"

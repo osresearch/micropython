@@ -30,3 +30,6 @@
 [submodule "lib/mynewt-nimble"]
 	path = lib/mynewt-nimble
 	url = https://github.com/apache/mynewt-nimble.git
+[submodule "lib/efm32-base"]
+	path = lib/efm32-base
+	url = https://github.com/ryankurte/efm32-base.git

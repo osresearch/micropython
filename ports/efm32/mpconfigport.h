@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#include <mpconfigboard.h>
+
 // options to control how MicroPython is built
 
 // You can disable the built-in MicroPython compiler by setting the following
@@ -165,9 +167,6 @@ extern const struct _mp_obj_module_t machine_module;
 
 // We need to provide a declaration/definition of alloca()
 #include <alloca.h>
-
-#define MICROPY_HW_BOARD_NAME "gecko"
-#define MICROPY_HW_MCU_NAME "efr32mg1p"
 
 #define MP_STATE_PORT MP_STATE_VM
 

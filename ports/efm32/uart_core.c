@@ -17,6 +17,7 @@
 #include "em_gpio.h"
 #include "lib/utils/interrupt_char.h"
 #include "zrepl.h"
+#include "board_pins.h"
 
 // this definition is insufficient; there are places where usart1 is used
 #define USART USART1
@@ -24,28 +25,6 @@
 
 #define CONFIG_RX_IRQ
 #define CONFIG_TX_IRQ
-
-#if 0
-// Ikea 10W LED dimmer
-#define USART_TX_PORT gpioPortC
-#define USART_TX_PIN 10
-#define USART_TX_LOCATION 15 // ? found in af_pins.h somehow
-#define USART_RX_PORT gpioPortC
-#define USART_RX_PIN 11
-#define USART_RX_LOCATION 15 // ?
-#else
-// Ikea On/Off switch, which doesn't use the Gecko board
-// There are dedicated TX/RX pins on the underside of the case.
-#define USART_TX_PORT gpioPortB
-#define USART_TX_PIN 15
-#define USART_TX_LOCATION 10 // ? found in af_pins.h somehow
-#define USART_RX_PORT gpioPortB
-#define USART_RX_PIN 14
-#define USART_RX_LOCATION 8 // ?
-#endif
-
-
-
 
 #ifdef CONFIG_RX_IRQ
 

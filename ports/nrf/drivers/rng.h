@@ -24,4 +24,4 @@
  * THE SOFTWARE.
  */
 
-uint32_t machine_rng_generate_random_word(void);
+uint32_t rng_generate_random_word(void);

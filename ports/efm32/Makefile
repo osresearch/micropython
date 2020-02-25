@@ -26,9 +26,9 @@ RAIL_DIR := $(GECKO_SDK)/radio/rail_lib
 
 # Checkout the efm32-base submodule if it is not
 # already checked out
-$(shell if [ ! -d "../../$(GECKO_SDK)" ]; then \
+$(shell if [ ! -r "../../$(GECKO_SDK)/README.md" ]; then \
 	echo >&2 "gecko_sdk missing: checkout efm32-base" ; \
-	git submodule update lib/efm32-base ; \
+	git submodule update --depth 1 --init ../../lib/efm32-base >&2 ; \
 fi )
 
 INC += -I.
@@ -171,8 +171,9 @@ mpy-cross: $(MPY_TOOL_BIN)
 	$(MAKE) -C ../../mpy-cross
 
 # Force a build of mpy-cross if it is not already built
-$(shell if [ ! -x "$(MPY_TOOL_BIN)" ]; then \
-	$(MAKE) -C ../../mpy-cross ; \
+$(shell if [ ! -x "../../mpy-cross/mpy-cross" ]; then \
+	echo >&2 "building mpy-cross" ; \
+	$(MAKE) -C ../../mpy-cross >&2 ; \
 fi)
 
 

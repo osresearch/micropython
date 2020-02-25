@@ -2,6 +2,7 @@
 #include <string.h>
 #include "py/mpconfig.h"
 #include "py/stream.h"
+#include "py/runtime.h"
 
 /*
  * Core UART functions to implement for a port

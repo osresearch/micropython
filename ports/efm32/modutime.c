@@ -34,7 +34,7 @@
 #include "py/runtime.h"
 #include "extmod/utime_mphal.h"
 
-#include "rail/rail.h"
+#include "rail.h"
 
 unsigned mp_hal_ticks_cpu(void)
 {

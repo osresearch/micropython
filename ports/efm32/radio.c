@@ -14,9 +14,8 @@
 #include "radio.h"
 #include "zrepl.h"
 
-#include "rail/rail.h"
-#include "rail/pa.h"
-#include "rail/ieee802154/rail_ieee802154.h"
+#include "rail.h"
+#include "protocol/ieee802154/rail_ieee802154.h"
 
 #ifndef RADIO_CHANNEL
 #define RADIO_CHANNEL 11

@@ -13,20 +13,37 @@ ifeq ($(CROSS), 1)
 CROSS_COMPILE = arm-none-eabi-
 endif
 
+# CPU specific configuration
+EFM_FAMILY = efr32mg1p
+RAIL_FAMILY = efr32xg1x
+EFM_DEV = EFR32MG1P132F256GM32
+
+GECKO_SDK = lib/efm32-base
+EFM_FAMILY_UC := $(shell echo '$(EFM_FAMILY)' | tr '[:lower:]' '[:upper:]')
+EFM_DIR := $(GECKO_SDK)/device/$(EFM_FAMILY_UC)
+EMLIB_DIR := $(GECKO_SDK)/emlib/src
+RAIL_DIR := $(GECKO_SDK)/radio/rail_lib
+
+# This could also be done with a git submodule, although
+$(shell if [ ! -d "../../$(GECKO_SDK)" ]; then \
+	echo >&2 "gecko_sdk missing: checkout efm32-base" ; \
+	git submodule update lib/efm32-base ; \
+fi )
+
 INC += -I.
-INC += -Igecko_sdk/include
-INC += -Iemlib/inc
+INC += -I../../$(EMLIB_DIR)/../inc
+INC += -I../../$(EFM_DIR)/Include
+INC += -I../../$(GECKO_SDK)/cmsis/Include/
 INC += -D__NO_SYSTEM_INIT
 INC += -D__STARTUP_CLEAR_BSS
 INC += -D__STACK_SIZE=0x1000
 INC += -D__HEAP_SIZE=0x6000
 # should the radio lib be optional?
-INC += -Irail
-LIBS += rail/TARGET_EFR32_1/librail_efr32xg1_release.a
+INC += -I../../$(RAIL_DIR)
+INC += -I../../$(RAIL_DIR)/common
+INC += -I../../$(RAIL_DIR)/chip/efr32/$(RAIL_FAMILY)
+LIBS += ../../$(GECKO_SDK)/protocol/bluetooth/lib/$(EFM_FAMILY_UC)/GCC/librail.a
 
-EFM_FAMILY = efr32mg1p
-EFM_DEV = EFR32MG1P132F256GM32
-EFM_DIR = $(EFM_FAMILY)
 
 INC += -I$(TOP)
 INC += -I$(BUILD)
@@ -49,7 +66,7 @@ LIBGCC	:= $(shell $(CROSS_COMPILE)gcc $(CFLAGS_CORTEX_M4) --print-libgcc)
 
 LIBS += $(LIBM) $(LIBGCC)
 
-LINKER_SCRIPT = $(EFM_DIR)/$(EFM_FAMILY).ld
+LINKER_SCRIPT = ../../$(EFM_DIR)/Source/GCC/$(EFM_FAMILY).ld
 
 CFLAGS = $(INC) -g -Wall -Werror -std=c99 -nostdlib $(CFLAGS_CORTEX_M4) $(COPT)
 LDFLAGS = -nostdlib -T $(LINKER_SCRIPT) -Map=$@.map --cref --gc-sections
@@ -115,16 +132,16 @@ SRC_QSTR += $(PYMOD_SRC_C)
 # EMLIB from Silicon Labs for the Gecko boards
 # These are not included in the QSTR scan
 LIB_C += \
-	$(EFM_DIR)/startup_$(EFM_FAMILY).c \
-	$(EFM_DIR)/system_$(EFM_FAMILY).c \
-	emlib/src/em_usart.c \
-	emlib/src/em_cmu.c \
-	emlib/src/em_gpio.c \
-	emlib/src/em_system.c \
-	emlib/src/em_core.c \
-	emlib/src/em_emu.c \
-	emlib/src/em_crypto.c \
-	emlib/src/em_timer.c \
+	$(EFM_DIR)/Source/GCC/startup_$(EFM_FAMILY).c \
+	$(EFM_DIR)/Source/system_$(EFM_FAMILY).c \
+	$(EMLIB_DIR)/em_usart.c \
+	$(EMLIB_DIR)/em_cmu.c \
+	$(EMLIB_DIR)/em_gpio.c \
+	$(EMLIB_DIR)/em_system.c \
+	$(EMLIB_DIR)/em_core.c \
+	$(EMLIB_DIR)/em_emu.c \
+	$(EMLIB_DIR)/em_crypto.c \
+	$(EMLIB_DIR)/em_timer.c \
 
 OBJ = $(PY_CORE_O) \
 	$(addprefix $(BUILD)/, $(SRC_C:.c=.o)) \

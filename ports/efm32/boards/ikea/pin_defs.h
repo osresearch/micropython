@@ -1,7 +1,7 @@
-    { {&machine_pin_type}, gpioPortA, 0,  0, PWM(0,0) }, // PWM4
-    { {&machine_pin_type}, gpioPortA, 1,  1, PWM(1,0) }, // PWM3
-    { {&machine_pin_type}, gpioPortB, 12, 2, PWM(2,5) }, // PWM2, warm
-    { {&machine_pin_type}, gpioPortB, 13, 3, PWM(3,5) }, // PWM1, on LED10W
+    { {&machine_pin_type}, gpioPortA, 0,  0, PWM(0,0) }, // pcb label PWM4
+    { {&machine_pin_type}, gpioPortA, 1,  1, PWM(1,0) }, // pcb label PWM3
+    { {&machine_pin_type}, gpioPortB, 12, 2, PWM(2,5) }, // pcb label PWM2
+    { {&machine_pin_type}, gpioPortB, 13, 3, PWM(3,5) }, // pcb label PWM1
 
     // right side going up
     { {&machine_pin_type}, gpioPortB, 15, 4, NO_PWM },

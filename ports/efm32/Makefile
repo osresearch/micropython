@@ -1,3 +1,13 @@
+BOARD ?= ikea
+
+ifeq ($(wildcard boards/$(BOARD)/.),)
+$(error Invalid BOARD specified)
+endif
+
+include boards/$(BOARD)/mpconfigboard.mk
+
+BUILD ?= build-$(BOARD)
+
 include ../../py/mkenv.mk
 
 # Default to building a cross compiler
@@ -12,11 +22,6 @@ include $(TOP)/py/py.mk
 ifeq ($(CROSS), 1)
 CROSS_COMPILE = arm-none-eabi-
 endif
-
-# CPU specific configuration
-EFM_FAMILY = efr32mg1p
-RAIL_FAMILY = efr32xg1x
-EFM_DEV = EFR32MG1P132F256GM32
 
 GECKO_SDK = lib/efm32-base
 EFM_FAMILY_UC := $(shell echo '$(EFM_FAMILY)' | tr '[:lower:]' '[:upper:]')
@@ -48,6 +53,7 @@ LIBS += ../../$(GECKO_SDK)/protocol/bluetooth/lib/$(EFM_FAMILY_UC)/GCC/librail.a
 
 INC += -I$(TOP)
 INC += -I$(BUILD)
+INC += -Iboards/$(BOARD)
 
 ifeq ($(CROSS), 1)
 DFU = $(TOP)/tools/dfu.py
@@ -62,14 +68,14 @@ CFLAGS_CORTEX_M4 = \
 	-D$(EFM_DEV) \
 	-falign-functions=2 \
 
-LIBM	:= $(shell $(CROSS_COMPILE)gcc $(CFLAGS_CORTEX_M4) --print-file-name=libm.a)
-LIBGCC	:= $(shell $(CROSS_COMPILE)gcc $(CFLAGS_CORTEX_M4) --print-libgcc)
+LIBM	:= $(shell $(CROSS_COMPILE)gcc $(CFLAGS_$(MCU_SERIES)) --print-file-name=libm.a)
+LIBGCC	:= $(shell $(CROSS_COMPILE)gcc $(CFLAGS_$(MCU_SERIES)) --print-libgcc)
 
 LIBS += $(LIBM) $(LIBGCC)
 
 LINKER_SCRIPT = ../../$(EFM_DIR)/Source/GCC/$(EFM_FAMILY).ld
 
-CFLAGS = $(INC) -g -Wall -Werror -std=c99 -nostdlib $(CFLAGS_CORTEX_M4) $(COPT)
+CFLAGS = $(INC) -g -Wall -Werror -std=c99 -nostdlib $(CFLAGS_$(MCU_SERIES)) $(COPT)
 LDFLAGS = -nostdlib -T $(LINKER_SCRIPT) -Map=$@.map --cref --gc-sections
 else
 LD = gcc

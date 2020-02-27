@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: efm32 build
 
 on: [push]
 
@@ -9,6 +9,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v2
+    - name: cross-compiler
+      run:  sudo apt install gcc-arm-none-eabi
     - name: mpy-cross
       run:  make -C mpy-cross
     - name: submodule

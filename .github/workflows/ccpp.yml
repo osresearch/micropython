@@ -1,0 +1,17 @@
+name: C/C++ CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    - name: mpy-cross
+      run:  make -C mpy-cross
+    - name: submodule
+      run: git submodule update --depth 1 --init lib/efm32-base
+    - name: efm32/ikea
+      run: make -C ports/efm32 BOARD=ikea

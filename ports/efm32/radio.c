@@ -23,6 +23,7 @@
 
 uint8_t radio_mac_address[8];
 static volatile int radio_tx_pending;
+static int radio_channel;
 
 
 typedef enum {
@@ -56,7 +57,9 @@ static const RAIL_DataConfig_t rail_data_config = {
 
 
 static const RAIL_IEEE802154_Config_t ieee802154_config = {
-	.promiscuousMode	= true, // default to promiscuous since multipurpose is not supported
+	// if zrepl is used for receiving, then promiscuous must be
+	// enabled since filtering on multipurpose frames is not supported
+	.promiscuousMode	= false,
 	.isPanCoordinator	= false,
 	.framesMask		= RAIL_IEEE802154_ACCEPT_STANDARD_FRAMES,
 	.ackConfig = {
@@ -200,20 +203,23 @@ done:
 
 static void rail_callback_events(RAIL_Handle_t rail, RAIL_Events_t events)
 {
-/*
-	// ignore certain bit patterns unless other things are set
-	events &= ~( 0
-		| RAIL_EVENT_RX_PREAMBLE_LOST
-		| RAIL_EVENT_RX_PREAMBLE_DETECT
-		| RAIL_EVENT_RX_TIMING_LOST
-		| RAIL_EVENT_RX_TIMING_DETECT
-	);
+	if(0)
+	{
+		// ignore certain bit patterns unless other things are set
+		events &= ~( 0
+			| RAIL_EVENT_RX_PREAMBLE_LOST
+			| RAIL_EVENT_RX_PREAMBLE_DETECT
+			| RAIL_EVENT_RX_TIMING_LOST
+			| RAIL_EVENT_RX_TIMING_DETECT
+		);
 
-	if(events == 0)
-		return;
+		if(events == 0)
+			return;
 
-	printf("rx %08x:%08x\n", (unsigned int)(events >> 32), (unsigned int)(events >> 0));
-*/
+		printf("rx %08x:%08x\n",
+			(unsigned int)(events >> 32),
+			(unsigned int)(events >> 0));
+	}
 
 	if (events & RAIL_EVENT_RSSI_AVERAGE_DONE)
 	{
@@ -262,10 +268,11 @@ static void rail_callback_events(RAIL_Handle_t rail, RAIL_Events_t events)
 	// lots of other events that we don't handle
 }
 
-static void radio_channel(unsigned channel)
+static void radio_channel_set(unsigned channel)
 {
 	RAIL_Idle(rail, RAIL_IDLE_FORCE_SHUTDOWN_CLEAR_FLAGS, true);
 	radio_state = RADIO_RX;
+	radio_channel = channel;
 	RAIL_StartRx(rail, channel, NULL);
 }
 
@@ -275,8 +282,29 @@ void radio_init(void)
 	if (radio_state != RADIO_UNINIT)
 		return;
 
-	if(0)
-	printf("%s: mac %08x:%08x\n", __func__, (unsigned int) DEVINFO->UNIQUEH, (unsigned int) DEVINFO->UNIQUEL);
+	// prevent recursive entry if zrepl is active
+	const int old_zrepl = zrepl_active;
+	zrepl_active = 0;
+
+	if(1)
+	{
+		RAIL_Version_t version;
+		RAIL_GetVersion(&version, true);
+		printf("mac=%08x:%08x",
+			(unsigned int) DEVINFO->UNIQUEH,
+			(unsigned int) DEVINFO->UNIQUEL
+		);
+
+		printf(" rail=%d.%d-%d build %d flags %d (%08x)%s\n",
+			version.major,
+			version.minor,
+			version.rev,
+			version.build,
+			version.flags,
+			(unsigned int) version.hash,
+			version.multiprotocol ? " multiprotocol" : ""
+		);
+	}
 
 	rail = RAIL_Init(&rail_config, rail_callback_rfready);
 	RAIL_ConfigData(rail, &rail_data_config);
@@ -288,7 +316,7 @@ void radio_init(void)
 		| RAIL_EVENT_RX_ACK_TIMEOUT
 		| RAIL_EVENT_RX_PACKET_RECEIVED
 		| RAIL_EVENT_IEEE802154_DATA_REQUEST_COMMAND
-		| RAIL_EVENT_TX_PACKET_SENT
+		| RAIL_EVENTS_TX_COMPLETION
 		| RAIL_EVENT_CAL_NEEDED
 	);
 
@@ -300,7 +328,8 @@ void radio_init(void)
 	memcpy(&radio_mac_address[4], (const void*)&DEVINFO->UNIQUEH, 4);
 	RAIL_IEEE802154_SetLongAddress(rail, radio_mac_address, 0);
 
-	radio_channel(RADIO_CHANNEL);
+	radio_channel_set(RADIO_CHANNEL);
+	zrepl_active = old_zrepl;
 }
 
 mp_obj_t py_radio_init(void)
@@ -393,25 +422,34 @@ void * radio_tx_buffer_get(unsigned usec_delay)
 int radio_tx_buffer_send(size_t len)
 {
 	// radio tx length including the 2 byte FCS at the end
-	radio_tx_buffer[0] = 2 + len;
+	*(volatile uint8_t*) &radio_tx_buffer[0] = 2 + len;
 
 	CORE_ATOMIC_IRQ_DISABLE();
 
 	radio_tx_pending = 1;
 	radio_state = RADIO_TX;
-	RAIL_Idle(rail, RAIL_IDLE_ABORT, true);
+
+	// do we have to quiese the radio here?
+	//RAIL_Idle(rail, RAIL_IDLE_ABORT, true);
 
 	RAIL_SetTxFifo(rail, radio_tx_buffer, len + 1, len + 1);
-	static const RAIL_TxOptions_t txOpt = RAIL_TX_OPTIONS_DEFAULT;
+	RAIL_TxOptions_t txOpt = RAIL_TX_OPTIONS_DEFAULT;
 
 /*
 	// check if we're waiting for an ack, but not yet implemented
+	// also doesn't work for multipurpose frames
 	if (radio_tx_buffer[1+1] & (1 << 5))
 		txOpt |= RAIL_TX_OPTION_WAIT_FOR_ACK;
 */
 
 	// start the transmit, we hope!
-	int rc = RAIL_StartCcaCsmaTx(rail, RADIO_CHANNEL, txOpt, &csma_config, NULL);
+	int rc = RAIL_StartCcaCsmaTx(
+		rail,
+		radio_channel,
+		txOpt,
+		&csma_config,
+		NULL
+	);
 
 	// if it failed to start, unset the pending flag
 	if (rc != 0)
@@ -512,7 +550,7 @@ static mp_obj_t mp_radio_channel(mp_obj_t channel_obj)
 		radio_init();
 
 	unsigned channel = mp_obj_int_get_checked(channel_obj);
-	radio_channel(channel);
+	radio_channel_set(channel);
 
 	return mp_const_none;
 }

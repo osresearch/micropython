@@ -42,6 +42,7 @@
 #include "em_usart.h"
 #include "zrepl.h"
 #include "radio.h"
+#include "genhdr/mpversion.h"
 
 extern uint8_t __StackTop;
 extern uint8_t __HeapBase;
@@ -87,8 +88,12 @@ int main(int argc, char **argv)
 	extern char mp_hal_stdin_rx_chr(void);
 	mp_hal_stdout_init();
 
+	// send a quick broadcast packet to announce the device
 	radio_init();
 	zrepl_active = 1;
+	static const char version[] = "MicroPython " MICROPY_GIT_TAG " on " MICROPY_BUILD_DATE;
+	zrepl_send(version, sizeof(version) - 1);
+	zrepl_active = 0;
 
 soft_reset:
 	if (1)

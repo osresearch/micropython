@@ -27,7 +27,8 @@ GECKO_SDK = lib/efm32-base
 EFM_FAMILY_UC := $(shell echo '$(EFM_FAMILY)' | tr '[:lower:]' '[:upper:]')
 EFM_DIR := $(GECKO_SDK)/device/$(EFM_FAMILY_UC)
 EMLIB_DIR := $(GECKO_SDK)/emlib/src
-RAIL_DIR := $(GECKO_SDK)/radio/rail_lib
+#RAIL_DIR := $(GECKO_SDK)/radio/rail_lib
+RAIL_DIR := rail
 
 # Checkout the efm32-base submodule if it is not
 # already checked out
@@ -45,10 +46,14 @@ INC += -D__STARTUP_CLEAR_BSS
 INC += -D__STACK_SIZE=0x1000
 INC += -D__HEAP_SIZE=0x6000
 # should the radio lib be optional?
-INC += -I../../$(RAIL_DIR)
-INC += -I../../$(RAIL_DIR)/common
-INC += -I../../$(RAIL_DIR)/chip/efr32/$(RAIL_FAMILY)
-LIBS += ../../$(GECKO_SDK)/protocol/bluetooth/lib/$(EFM_FAMILY_UC)/GCC/librail.a
+#INC += -I../../$(RAIL_DIR)
+#INC += -I../../$(RAIL_DIR)/common
+#INC += -I../../$(RAIL_DIR)/chip/efr32/$(RAIL_FAMILY)
+#LIBS += ../../$(GECKO_SDK)/protocol/bluetooth/lib/$(EFM_FAMILY_UC)/GCC/librail.a
+INC += -I$(RAIL_DIR)
+
+# RAIL_LIB must be specified by the board/$(BOARD)/mpconfigboard.mk
+LIBS += $(RAIL_LIB)
 
 
 INC += -I$(TOP)

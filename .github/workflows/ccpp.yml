@@ -16,18 +16,18 @@ jobs:
     - name: submodule
       run: git submodule update --depth 1 --init lib/efm32-base
 
-    - name: efm32/ikea
+    - name: Build efm32/ikea
       run: make -C ports/efm32 BOARD=ikea
     - name: Upload efm32/ikea
       uses: actions/upload-artifact@v1
       with:
-        name: micropython-ikea.elf
-        path: build-ikea/firmware.elf
+        name: efm32/micropython-ikea.elf
+        path: ports/efm32/build-ikea/firmware.elf
 
-    - name: efm32/tbsense2
+    - name: Build efm32/tbsense2
       run: make -C ports/efm32 BOARD=tbsense2
     - name: Upload efm32/tbsense2
       uses: actions/upload-artifact@v1
       with:
-        name: micropython-tbsense2.elf
-        path: build-tbsense2/firmware.elf
+        name: efm32/micropython-tbsense2.elf
+        path: ports/efm32/build-tbsense2/firmware.elf

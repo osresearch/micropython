@@ -1,3 +1,5 @@
+[![Build status](../../workflows/efm32-build/badge.svg)](../../actions?query=workflow%3Aefm32-build)
+
 ![EFR32 pinout showing SWD, RX/TX, and LED pins](images/efr32-annotated.jpg)
 
 # The Micropython port for the Silcon Labs EFM32

@@ -1,4 +1,4 @@
-name: efm32 build
+name: efm32-build
 
 on: [push]
 

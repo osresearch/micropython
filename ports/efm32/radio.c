@@ -133,13 +133,12 @@ radio_tx_autoack(uint8_t seq)
 	static uint8_t ack_buf[] = {
 		0x05,	// length, including FCS
 		FRAME_TYPE_ACK,
+		0x00,   // FCF bits that we don't care about
 		0x00,	// seq goes here
-		0x00,	// Frame Check sequence filled in by radio
-		0x00,	// FCS
 	};
 
-	ack_buf[2] = seq;
-	int rc = RAIL_WriteAutoAckFifo(rail, ack_buf, sizeof(ack_buf));
+	ack_buf[3] = seq;
+	int rc = RAIL_WriteAutoAckFifo(rail, ack_buf, 5);
 	printf("ack rc=%d\n", rc);
 	return rc;
 }
@@ -178,7 +177,7 @@ static void process_packet(RAIL_Handle_t rail)
 		// ACK requested and to us, assume the sequence number
 		// is the third byte in the header (after the length byte,
 		// and the two bytes of the FCF).
-		radio_tx_autoack(header[2]);
+		radio_tx_autoack(header[3]);
 	}
 
 	{

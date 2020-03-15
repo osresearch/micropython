@@ -178,16 +178,6 @@ MPY_TOOL_BIN = $(TOP)/tools/mpy-tool.py
 MPY_TOOL = $(PYTHON) $(MPY_TOOL_BIN) -mlongint-impl=none
 FROZEN_MPY_DIR = modules
 
-mpy-cross: $(MPY_TOOL_BIN)
-	$(MAKE) -C ../../mpy-cross
-
-# Force a build of mpy-cross if it is not already built
-$(shell if [ ! -x "../../mpy-cross/mpy-cross" ]; then \
-	echo >&2 "building mpy-cross" ; \
-	$(MAKE) -C ../../mpy-cross >&2 ; \
-fi)
-
-
 $(BUILD)/firmware.elf: $(OBJ)
 	$(ECHO) "LINK $@"
 	$(Q)$(LD) $(LDFLAGS) -o $@ $^ $(LIBS)

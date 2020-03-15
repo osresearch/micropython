@@ -22,6 +22,9 @@
 #endif
 
 uint8_t radio_mac_address[8];
+uint16_t radio_short_address;
+uint16_t radio_pan_id;
+static bool radio_promiscuous;
 static volatile int radio_tx_pending;
 static int radio_channel;
 
@@ -63,7 +66,7 @@ static const RAIL_IEEE802154_Config_t ieee802154_config = {
 	.isPanCoordinator	= false,
 	.framesMask		= RAIL_IEEE802154_ACCEPT_STANDARD_FRAMES,
 	.ackConfig = {
-		.enable			= true,
+		.enable			= true, // enable autoack
 		.ackTimeout		= 54 * 16, // 54 symbols * 16 us/symbol = 864 usec
 		.rxTransitions = {
 			.success = RAIL_RF_STATE_RX, // go to Tx to send the ACK
@@ -116,6 +119,32 @@ static uint8_t rx_buffer_copy[MAC_PACKET_MAX_LENGTH];
 
 uint8_t radio_tx_buffer[MAC_PACKET_MAX_LENGTH];
 
+#define FRAME_TYPE_ACK	0x02
+
+/*
+ * Send a pre-formed ACK message ASAP in the RX path,
+ * using the AutoAckFifo.  Needs to fill in the sequence
+ * number from the message, so this is not safe to call from
+ * outside the RX interrupt.
+ */
+static int
+radio_tx_autoack(uint8_t seq)
+{
+	static uint8_t ack_buf[] = {
+		0x05,	// length, including FCS
+		FRAME_TYPE_ACK,
+		0x00,	// seq goes here
+		0x00,	// Frame Check sequence filled in by radio
+		0x00,	// FCS
+	};
+
+	ack_buf[2] = seq;
+	int rc = RAIL_WriteAutoAckFifo(rail, ack_buf, sizeof(ack_buf));
+	printf("ack rc=%d\n", rc);
+	return rc;
+}
+
+
 static void process_packet(RAIL_Handle_t rail)
 {
 	RAIL_RxPacketInfo_t info;
@@ -128,20 +157,30 @@ static void process_packet(RAIL_Handle_t rail)
 	if (info.packetBytes > MAC_PACKET_MAX_LENGTH)
 		goto done;
 
-	// deal with acks early
-/*
+	// check for an ack packet and turn off the auto ack for this rx
 	uint8_t header[4];
-	RAIL_PeekRxPacket(rail, handle, header, 4, 0);
-	if (header[0] == 5
-	&&  header[3] == current_tx_sequence
-	&& waiting_for_ack)
+	RAIL_PeekRxPacket(rail, handle, header, sizeof(header), 0);
+	const uint8_t len = header[0];
+	const uint8_t packet_type = header[1] & 0x03;
+	const uint8_t ack_requested = header[1] & 0x20;
+	if (len == 5 && packet_type == FRAME_TYPE_ACK)
 	{
+		// this is an ack, so don't send a reply
 		RAIL_CancelAutoAck(rail);
-		waiting_for_ack = false;
-		last_ack_pending_bit = (header[1] & (1 << 4)) != 0;
-		printf("got ack\n");
+		// could check to see if this acks our last packet
+		// and not forward it up the stack, but we let it pass for now
+		//waiting_for_ack = false;
+		//last_ack_pending_bit = (header[1] & (1 << 4)) != 0;
+		//printf("got ack\n");
 	} else
-*/
+	if (ack_requested && !radio_promiscuous)
+	{
+		// ACK requested and to us, assume the sequence number
+		// is the third byte in the header (after the length byte,
+		// and the two bytes of the FCF).
+		radio_tx_autoack(header[2]);
+	}
+
 	{
 		RAIL_RxPacketDetails_t details;
 		details.timeReceived.timePosition = RAIL_PACKET_TIME_DEFAULT;
@@ -153,7 +192,7 @@ static void process_packet(RAIL_Handle_t rail)
 		if (info.packetBytes > MAC_PACKET_MAX_LENGTH - 2)
 		{
 			// should never happen?
-			printf("rx %d\n", info.packetBytes);
+			printf("rx too long %d\n", info.packetBytes);
 		} else {
 			RAIL_CopyRxPacket(rx_buffer, &info); // puts the length in byte 0
 
@@ -317,6 +356,7 @@ void radio_init(void)
 		| RAIL_EVENT_RX_PACKET_RECEIVED
 		| RAIL_EVENT_IEEE802154_DATA_REQUEST_COMMAND
 		| RAIL_EVENTS_TX_COMPLETION
+		| RAIL_EVENTS_TXACK_COMPLETION
 		| RAIL_EVENT_CAL_NEEDED
 	);
 
@@ -327,6 +367,16 @@ void radio_init(void)
 	memcpy(&radio_mac_address[0], (const void*)&DEVINFO->UNIQUEL, 4);
 	memcpy(&radio_mac_address[4], (const void*)&DEVINFO->UNIQUEH, 4);
 	RAIL_IEEE802154_SetLongAddress(rail, radio_mac_address, 0);
+
+	// set the short address to something other than 0
+	radio_short_address = 0xcafe;
+	RAIL_IEEE802154_SetShortAddress(rail, radio_short_address, 0);
+
+	// unpause auto-ack
+	RAIL_PauseRxAutoAck(rail, false);
+
+	// cache the current promiscuous mode
+	radio_promiscuous = ieee802154_config.promiscuousMode;
 
 	radio_channel_set(RADIO_CHANNEL);
 	zrepl_active = old_zrepl;
@@ -498,50 +548,63 @@ static mp_obj_t radio_mac(void)
 	if (radio_state == RADIO_UNINIT)
 		radio_init();
 
-	static mp_obj_t mac_bytes;
-	if (!mac_bytes)
-		mac_bytes = mp_obj_new_bytes(radio_mac_address, sizeof(radio_mac_address));
-	if (!mac_bytes)
-		return mp_const_none;
-
-	return mac_bytes;
+	return mp_obj_new_bytes(radio_mac_address, sizeof(radio_mac_address));
 }
 
 MP_DEFINE_CONST_FUN_OBJ_0(radio_mac_obj, radio_mac);
 
 
-static mp_obj_t radio_promiscuous(mp_obj_t value_obj)
+static mp_obj_t mp_radio_promiscuous(size_t n_args, const mp_obj_t *args)
 {
 	if (radio_state == RADIO_UNINIT)
 		radio_init();
 
-	int status = mp_obj_int_get_checked(value_obj);
+	if (n_args == 1)
+	{
+		radio_promiscuous = mp_obj_int_get_checked(args[0]);
+		RAIL_IEEE802154_SetPromiscuousMode(rail, radio_promiscuous);
+		printf("radio: %s promiscuous mode\n", radio_promiscuous ? "enabling" : "disabling");
+	}
 
-	printf("radio: %s promiscuous mode\n", status ? "enabling" : "disabling");
-	RAIL_IEEE802154_SetPromiscuousMode(rail, status);
-
-	return mp_const_none;
+	return MP_OBJ_NEW_SMALL_INT(radio_promiscuous);
 }
 
-MP_DEFINE_CONST_FUN_OBJ_1(radio_promiscuous_obj, radio_promiscuous);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(radio_promiscuous_obj, 0, 1, mp_radio_promiscuous);
 
 
-static mp_obj_t radio_address(mp_obj_t short_addr_obj, mp_obj_t pan_id_obj)
+static mp_obj_t mp_radio_short_address(size_t n_args, const mp_obj_t *args)
 {
 	if (radio_state == RADIO_UNINIT)
 		radio_init();
 
- 	unsigned short_addr = mp_obj_int_get_checked(short_addr_obj);
- 	unsigned pan_id = mp_obj_int_get_checked(pan_id_obj);
+	if (n_args == 1)
+	{
+ 		radio_short_address = mp_obj_int_get_checked(args[0]);
+		RAIL_IEEE802154_SetShortAddress(rail, radio_short_address, 0);
+		printf("radio: addr %04x\n", radio_short_address);
+	}
 
-	printf("radio: addr %04x/%04x\n", pan_id, short_addr);
-	RAIL_IEEE802154_SetPanId(rail, pan_id, 0);
-	RAIL_IEEE802154_SetShortAddress(rail, short_addr, 0);
-
-	return mp_const_none;
+	return MP_OBJ_NEW_SMALL_INT(radio_short_address);
 }
 
-MP_DEFINE_CONST_FUN_OBJ_2(radio_address_obj, radio_address);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(radio_short_address_obj, 0, 1, mp_radio_short_address);
+
+static mp_obj_t mp_radio_pan_id(size_t n_args, const mp_obj_t *args)
+{
+	if (radio_state == RADIO_UNINIT)
+		radio_init();
+
+	if (n_args == 1)
+	{
+		radio_pan_id = mp_obj_int_get_checked(args[0]);
+		RAIL_IEEE802154_SetPanId(rail, radio_pan_id, 0);
+		printf("radio: pan %04x\n", radio_pan_id);
+	}
+
+	return MP_OBJ_NEW_SMALL_INT(radio_pan_id);
+}
+
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(radio_pan_id_obj, 0, 1, mp_radio_pan_id);
 
 
 static mp_obj_t mp_radio_channel(mp_obj_t channel_obj)
@@ -562,7 +625,8 @@ STATIC const mp_map_elem_t radio_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_radio) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_init), (mp_obj_t) &radio_init_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_promiscuous), (mp_obj_t) &radio_promiscuous_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_address), (mp_obj_t) &radio_address_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_address), (mp_obj_t) &radio_short_address_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_pan), (mp_obj_t) &radio_pan_id_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_channel), (mp_obj_t) &radio_channel_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_mac), (mp_obj_t) &radio_mac_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_rx), (mp_obj_t) &radio_rxbytes_obj },

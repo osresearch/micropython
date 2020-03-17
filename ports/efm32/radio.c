@@ -22,8 +22,8 @@
 #endif
 
 uint8_t radio_mac_address[8];
-uint16_t radio_short_address;
-uint16_t radio_pan_id;
+uint16_t radio_short_address = 0xFFFF; // default value
+uint16_t radio_pan_id = 0xFFFF; // default value
 static bool radio_promiscuous;
 static volatile int radio_tx_pending;
 static int radio_channel;
@@ -368,8 +368,8 @@ void radio_init(void)
 	RAIL_IEEE802154_SetLongAddress(rail, radio_mac_address, 0);
 
 	// set the short address to something other than 0
-	radio_short_address = 0xcafe;
 	RAIL_IEEE802154_SetShortAddress(rail, radio_short_address, 0);
+	RAIL_IEEE802154_SetPanId(rail, radio_pan_id, 0);
 
 	// unpause auto-ack
 	RAIL_PauseRxAutoAck(rail, false);
@@ -583,6 +583,9 @@ static mp_obj_t mp_radio_short_address(size_t n_args, const mp_obj_t *args)
 		printf("radio: addr %04x\n", radio_short_address);
 	}
 
+	if (radio_short_address == 0xFFFF)
+		return mp_const_none;
+
 	return MP_OBJ_NEW_SMALL_INT(radio_short_address);
 }
 
@@ -599,6 +602,9 @@ static mp_obj_t mp_radio_pan_id(size_t n_args, const mp_obj_t *args)
 		RAIL_IEEE802154_SetPanId(rail, radio_pan_id, 0);
 		printf("radio: pan %04x\n", radio_pan_id);
 	}
+
+	if (radio_pan_id == 0xFFFF)
+		return mp_const_none;
 
 	return MP_OBJ_NEW_SMALL_INT(radio_pan_id);
 }

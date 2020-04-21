@@ -27,25 +27,20 @@
 #define MICROPY_HW_RTC_USE_CALOUT   (1)
 
 // UART config
-#define MICROPY_HW_UART1_NAME       "XB"
+#define MICROPY_HW_UART1_NAME       "MODEM"
 #define MICROPY_HW_UART1_TX         (pin_B6)
 #define MICROPY_HW_UART1_RX         (pin_B7)
+#define MICROPY_HW_UART2_NAME       "AUX"
 #define MICROPY_HW_UART2_TX         (pin_A2)
 #define MICROPY_HW_UART2_RX         (pin_A3)
-#define MICROPY_HW_UART3_NAME       "YB"
+#define MICROPY_HW_UART3_NAME       "CONSOLE"
 #define MICROPY_HW_UART3_TX         (pin_B10)
 #define MICROPY_HW_UART3_RX         (pin_B11)
-#define MICROPY_HW_UART4_NAME       "XA"
-#define MICROPY_HW_UART4_TX         (pin_A0)
-#define MICROPY_HW_UART4_RX         (pin_A1)
-#define MICROPY_HW_UART6_NAME       "YA"
-#define MICROPY_HW_UART6_TX         (pin_C6)
-#define MICROPY_HW_UART6_RX         (pin_C7)
 
 // I2C buses
-#define MICROPY_HW_I2C1_NAME        "X"
-#define MICROPY_HW_I2C1_SCL         (pin_B6)
-#define MICROPY_HW_I2C1_SDA         (pin_B7)
+#define MICROPY_HW_I2C1_NAME        "I2C1"
+#define MICROPY_HW_I2C1_SCL         (pin_B8)
+#define MICROPY_HW_I2C1_SDA         (pin_B9)
 #define MICROPY_HW_I2C2_NAME        "Y"
 #define MICROPY_HW_I2C2_SCL         (pin_B10)
 #define MICROPY_HW_I2C2_SDA         (pin_B11)
@@ -61,14 +56,6 @@
 #define MICROPY_HW_SPI2_SCK         (pin_B13) // Y6
 #define MICROPY_HW_SPI2_MISO        (pin_B14) // Y7
 #define MICROPY_HW_SPI2_MOSI        (pin_B15) // Y8
-
-// CAN buses
-#define MICROPY_HW_CAN1_NAME        "YA"
-#define MICROPY_HW_CAN1_TX          (pin_B9) // Y4
-#define MICROPY_HW_CAN1_RX          (pin_B8) // Y3
-#define MICROPY_HW_CAN2_NAME        "YB"
-#define MICROPY_HW_CAN2_TX          (pin_B13) // Y6
-#define MICROPY_HW_CAN2_RX          (pin_B12) // Y5
 
 /*
 // USRSW has no pullup or pulldown, and pressing the switch makes the input go low

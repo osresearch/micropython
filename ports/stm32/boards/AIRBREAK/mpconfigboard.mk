@@ -6,3 +6,6 @@ LD_FILES = boards/stm32f405.ld boards/common_ifs.ld
 #TEXT_ADDR = 0x08000000
 #TEXT1_ADDR = 0x08020000
 CFLAGS += -g
+
+FROZEN_MANIFEST = $(BOARD_DIR)/manifest.py
+

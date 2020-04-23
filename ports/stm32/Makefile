@@ -255,6 +255,7 @@ DRIVERS_SRC_C = $(addprefix drivers/,\
 	bus/softqspi.c \
 	memory/spiflash.c \
 	dht/dht.c \
+	bldc/bldc.c \
 	)
 
 SRC_C = \

@@ -130,6 +130,9 @@ STATIC mp_obj_t pyb_country(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(pyb_country_obj, 0, 1, pyb_country);
 
+extern mp_obj_t bldc_init_obj;
+extern mp_obj_t bldc_step_obj;
+
 STATIC const mp_rom_map_elem_t pyb_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_pyb) },
 
@@ -191,6 +194,8 @@ STATIC const mp_rom_map_elem_t pyb_module_globals_table[] = {
 
     // This function is not intended to be public and may be moved elsewhere
     { MP_ROM_QSTR(MP_QSTR_dht_readinto), MP_ROM_PTR(&dht_readinto_obj) },
+    { MP_ROM_QSTR(MP_QSTR_bldc_init), MP_ROM_PTR(&bldc_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_bldc_step), MP_ROM_PTR(&bldc_step_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_Timer), MP_ROM_PTR(&pyb_timer_type) },
 

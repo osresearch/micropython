@@ -507,7 +507,7 @@ STATIC void pyb_timer_print(const mp_print_t *print, mp_obj_t self_in, mp_print_
         uint32_t period = __HAL_TIM_GET_AUTORELOAD(&self->tim) & TIMER_CNT_MASK(self);
         // for efficiency, we compute and print freq as an int (not a float)
         uint32_t freq = timer_get_source_freq(self->tim_id) / ((prescaler + 1) * (period + 1));
-        mp_printf(print, "Timer(%u, freq=%u, prescaler=%u, period=%u, mode=%s, div=%u",
+        mp_printf(print, "Timer(%u, freq=%u, prescaler=%u, period=%u, mode=%s, div=%u, CR1=%x, CR2=%x, CCER=%x EGR=%x, CCMR2=%x, DIER=%x, BDTR=%x",
             self->tim_id,
             freq,
             prescaler,
@@ -515,7 +515,15 @@ STATIC void pyb_timer_print(const mp_print_t *print, mp_obj_t self_in, mp_print_
             self->tim.Init.CounterMode == TIM_COUNTERMODE_UP     ? "UP" :
             self->tim.Init.CounterMode == TIM_COUNTERMODE_DOWN   ? "DOWN" : "CENTER",
             self->tim.Init.ClockDivision == TIM_CLOCKDIVISION_DIV4 ? 4 :
-            self->tim.Init.ClockDivision == TIM_CLOCKDIVISION_DIV2 ? 2 : 1);
+            self->tim.Init.ClockDivision == TIM_CLOCKDIVISION_DIV2 ? 2 : 1,
+            self->tim.Instance->CR1,
+            self->tim.Instance->CR2,
+            self->tim.Instance->CCER,
+            self->tim.Instance->EGR,
+            self->tim.Instance->CCMR2,
+            self->tim.Instance->DIER,
+            self->tim.Instance->BDTR
+        );
 
         #if !defined(STM32L0)
         #if defined(IS_TIM_ADVANCED_INSTANCE)

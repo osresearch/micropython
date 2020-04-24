@@ -2,7 +2,7 @@
 ![MicroPython console says hello](https://live.staticflickr.com/65535/49801308566_f68836654d_b.jpg)
 
 This is an experimental port of MicroPython to the ResMed S10 CPAP
-machines, made posisble by [AirBreak.dev](https://airbreak.dev/).
+machines, made possible by [AirBreak.dev](https://airbreak.dev/).
 It is not yet suitable as a replacement for the vendor firmware,
 although it is a good starting point for projects that want to
 experiment with different features and add new functionality to
@@ -47,7 +47,7 @@ reflashing with OpenOCD.
 ![Blue accessory pinout](https://live.staticflickr.com/65535/49801320021_12cf03a5e5_b.jpg)
 
 The serial UART is 3.3v TTL at 115200 and can be accessed via pins 6, 7 and 9
-on the blu eaccessory connector.
+on the blue accessory connector.
 
 
 ## Motor control

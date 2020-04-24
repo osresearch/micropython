@@ -10,29 +10,32 @@ the hardware.
 
 ## Current status:
 
-[X] Serial console
-[X] SD Card
+- [X] Serial console
+- [X] SD Card
 
 ### UI features
-[X] Status LEDs
-[ ] White LEDs
-[ ] LCD drawing
-[X] LCD backlight
-[X] Buttons
+
+- [X] Status LEDs
+- [ ] White LEDs
+- [ ] LCD drawing
+- [X] LCD backlight
+- [X] Buttons
 
 ### Motor and sensors control
-[X] Openloop, low-speed motor control
-[X] Back EMF measurements (uncalibrated)
-[ ] High speed, closed loop RPM motor control
-[ ] Closed loop pressure control
-[ ] Closed loop flow control
-[X] Analog pressure sensor (uncalibrated)
-[ ] Differential pressure sensor (i2c?)
+
+- [X] Openloop, low-speed motor control
+- [X] Back EMF measurements (uncalibrated)
+- [ ] High speed, closed loop RPM motor control
+- [ ] Closed loop pressure control
+- [ ] Closed loop flow control
+- [X] Analog pressure sensor (uncalibrated)
+- [ ] Differential pressure sensor (i2c?)
 
 ### Accessories
-[ ] Cell modem
-[ ] Humidifier
-[ ] Heater
+
+- [ ] Cell modem
+- [ ] Humidifier
+- [ ] Heater
 
 
 ## Installation
@@ -47,3 +50,12 @@ The serial UART is 3.3v TTL at 115200 and can be accessed via pins 6, 7 and 9
 on the blu eaccessory connector.
 
 
+## Motor control
+
+![Noisy EMF data](https://social.v.st/system/media_attachments/files/000/058/821/original/b05d9d77d3ae9840.png?1587663571)
+
+The motor driver is a DRV8302 three-phase brushless DC controller, which
+is driven by six PWM signals and which outputs three back-EMF measurements
+that can be used for sensorless control.  The current code is very
+rudimentary and runs open loop at low speed. If you want to port something
+like VESC, it would be an amazing addition!

@@ -51,6 +51,12 @@ unsigned mp_hal_ticks_ms(void)
 	return mp_hal_ticks_us() / 1000;
 }
 
+uint64_t mp_hal_time_ns(void)
+{
+	// no RTC, so just ticks * 1000
+	return mp_hal_ticks_us() * 1000;
+}
+
 void mp_hal_delay_us(int us)
 {
 	unsigned now = mp_hal_ticks_us();

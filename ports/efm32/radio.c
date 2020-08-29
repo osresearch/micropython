@@ -139,7 +139,8 @@ radio_tx_autoack(uint8_t seq)
 
 	ack_buf[3] = seq;
 	int rc = RAIL_WriteAutoAckFifo(rail, ack_buf, 5);
-	printf("ack rc=%d\n", rc);
+	if (rc != RAIL_STATUS_NO_ERROR)
+		printf("ack rc=%d\n", rc);
 	return rc;
 }
 
@@ -484,12 +485,13 @@ int radio_tx_buffer_send(size_t len)
 	RAIL_SetTxFifo(rail, radio_tx_buffer, len + 1, len + 1);
 	RAIL_TxOptions_t txOpt = RAIL_TX_OPTIONS_DEFAULT;
 
-/*
-	// check if we're waiting for an ack, but not yet implemented
-	// also doesn't work for multipurpose frames
-	if (radio_tx_buffer[1+1] & (1 << 5))
+	// if this is not a multipurpose frame (0x5) and the FCF has
+	// ack requested, then tell the radio to stay online to wait for
+	// the ACK to arrive.
+	const uint8_t fcf = radio_tx_buffer[1];
+	if ((fcf & 0x07) != 0x05
+	&&  (fcf & 0x20) != 0x00)
 		txOpt |= RAIL_TX_OPTION_WAIT_FOR_ACK;
-*/
 
 	// start the transmit, we hope!
 	int rc = RAIL_StartCcaCsmaTx(

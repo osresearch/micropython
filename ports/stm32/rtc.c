@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 #include "py/runtime.h"
+#include "lib/timeutils/timeutils.h"
 #include "extint.h"
 #include "rtc.h"
 #include "irq.h"
@@ -227,9 +228,9 @@ STATIC HAL_StatusTypeDef PYB_RCC_OscConfig(RCC_OscInitTypeDef *RCC_OscInitStruct
         uint32_t tickstart = HAL_GetTick();
 
         #if defined(STM32F7) || defined(STM32L4) || defined(STM32H7) || defined(STM32WB)
-        //__HAL_RCC_PWR_CLK_ENABLE();
+        // __HAL_RCC_PWR_CLK_ENABLE();
         // Enable write access to Backup domain
-        //PWR->CR1 |= PWR_CR1_DBP;
+        // PWR->CR1 |= PWR_CR1_DBP;
         // Wait for Backup domain Write protection disable
         while ((PWR->CR1 & PWR_CR1_DBP) == RESET) {
             if (HAL_GetTick() - tickstart > RCC_DBP_TIMEOUT_VALUE) {
@@ -238,7 +239,7 @@ STATIC HAL_StatusTypeDef PYB_RCC_OscConfig(RCC_OscInitTypeDef *RCC_OscInitStruct
         }
         #else
         // Enable write access to Backup domain
-        //PWR->CR |= PWR_CR_DBP;
+        // PWR->CR |= PWR_CR_DBP;
         // Wait for Backup domain Write protection disable
         while ((PWR->CR & PWR_CR_DBP) == RESET) {
             if (HAL_GetTick() - tickstart > RCC_DBP_TIMEOUT_VALUE) {
@@ -383,7 +384,7 @@ STATIC HAL_StatusTypeDef PYB_RTC_MspInit_Finalise(RTC_HandleTypeDef *hrtc) {
         #endif
         uint32_t tickstart = rtc_startup_tick;
         while (__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) == RESET) {
-            if ((HAL_GetTick() - tickstart ) > timeout) {
+            if ((HAL_GetTick() - tickstart) > timeout) {
                 return HAL_TIMEOUT;
             }
         }
@@ -391,7 +392,7 @@ STATIC HAL_StatusTypeDef PYB_RTC_MspInit_Finalise(RTC_HandleTypeDef *hrtc) {
         // we now have to wait for LSI ready or timeout
         uint32_t tickstart = rtc_startup_tick;
         while (__HAL_RCC_GET_FLAG(RCC_FLAG_LSIRDY) == RESET) {
-            if ((HAL_GetTick() - tickstart ) > MICROPY_HW_RTC_LSI_TIMEOUT_MS) {
+            if ((HAL_GetTick() - tickstart) > MICROPY_HW_RTC_LSI_TIMEOUT_MS) {
                 return HAL_TIMEOUT;
             }
         }
@@ -405,7 +406,7 @@ STATIC HAL_StatusTypeDef PYB_RTC_MspInit_Finalise(RTC_HandleTypeDef *hrtc) {
         PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
     }
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK) {
-        //Error_Handler();
+        // Error_Handler();
         return HAL_ERROR;
     }
 
@@ -440,6 +441,23 @@ STATIC void RTC_CalendarConfig(void) {
         // init error
         return;
     }
+}
+
+uint64_t mp_hal_time_ns(void) {
+    uint64_t ns = 0;
+    #if MICROPY_HW_ENABLE_RTC
+    // Get current according to the RTC.
+    rtc_init_finalise();
+    RTC_TimeTypeDef time;
+    RTC_DateTypeDef date;
+    HAL_RTC_GetTime(&RTCHandle, &time, RTC_FORMAT_BIN);
+    HAL_RTC_GetDate(&RTCHandle, &date, RTC_FORMAT_BIN);
+    ns = timeutils_nanoseconds_since_1970(
+        2000 + date.Year, date.Month, date.Date, time.Hours, time.Minutes, time.Seconds);
+    uint32_t usec = ((RTC_SYNCH_PREDIV - time.SubSeconds) * (1000000 / 64)) / ((RTC_SYNCH_PREDIV + 1) / 64);
+    ns += usec * 1000;
+    #endif
+    return ns;
 }
 
 /******************************************************************************/
@@ -609,7 +627,7 @@ mp_obj_t pyb_rtc_wakeup(size_t n_args, const mp_obj_t *args) {
                     wut -= 0x10000;
                     if (wut > 0x10000) {
                         // wut still too large
-                        mp_raise_ValueError("wakeup value too large");
+                        mp_raise_ValueError(MP_ERROR_TEXT("wakeup value too large"));
                     }
                 }
             }
@@ -681,7 +699,7 @@ mp_obj_t pyb_rtc_wakeup(size_t n_args, const mp_obj_t *args) {
         NVIC_SetPriority(RTC_WKUP_IRQn, IRQ_PRI_RTC_WKUP);
         HAL_NVIC_EnableIRQ(RTC_WKUP_IRQn);
 
-        //printf("wut=%d wucksel=%d\n", wut, wucksel);
+        // printf("wut=%d wucksel=%d\n", wut, wucksel);
     } else {
         // clear WUTIE to disable interrupts
         RTC->CR &= ~RTC_CR_WUTIE;
@@ -726,10 +744,10 @@ mp_obj_t pyb_rtc_calibration(size_t n_args, const mp_obj_t *args) {
                 }
                 return mp_obj_new_int(cal & 1);
             } else {
-                mp_raise_ValueError("calibration value out of range");
+                mp_raise_ValueError(MP_ERROR_TEXT("calibration value out of range"));
             }
             #else
-            mp_raise_ValueError("calibration value out of range");
+            mp_raise_ValueError(MP_ERROR_TEXT("calibration value out of range"));
             #endif
         }
         if (cal > 0) {

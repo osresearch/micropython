@@ -36,11 +36,15 @@ import subprocess
 PATHS = [
     # C
     "extmod/*.[ch]",
+    "extmod/btstack/*.[ch]",
+    "extmod/nimble/*.[ch]",
+    "lib/mbedtls_errors/tester.c",
     "lib/netutils/*.[ch]",
     "lib/timeutils/*.[ch]",
     "lib/utils/*.[ch]",
     "mpy-cross/*.[ch]",
     "ports/*/*.[ch]",
+    "ports/windows/msvc/**/*.[ch]",
     "py/*.[ch]",
     # Python
     "drivers/**/*.py",
@@ -49,6 +53,7 @@ PATHS = [
     "ports/**/*.py",
     "py/**/*.py",
     "tools/**/*.py",
+    "tests/**/*.py",
 ]
 
 EXCLUSIONS = [
@@ -56,6 +61,10 @@ EXCLUSIONS = [
     "ports/*/build*",
     # gitignore in ports/unix ignores *.py, so also do it here.
     "ports/unix/*.py",
+    # not real python files
+    "tests/**/repl_*.py",
+    # needs careful attention before applying automatic formatting
+    "tests/basics/*.py",
 ]
 
 # Path to repo top-level dir.
@@ -68,9 +77,6 @@ C_EXTS = (
     ".h",
 )
 PY_EXTS = (".py",)
-
-
-FIXUP_REPLACEMENTS = ((re.compile("sizeof\(([a-z_]+)\) \*\(([a-z_]+)\)"), r"sizeof(\1) * (\2)"),)
 
 
 def list_files(paths, exclusions=None, prefix=""):
@@ -118,10 +124,6 @@ def fixup_c(filename):
                     if directive == "endif":
                         dedent_stack.pop()
 
-            # Apply general regex-based fixups.
-            for regex, replacement in FIXUP_REPLACEMENTS:
-                l = regex.sub(replacement, l)
-
             # Write out line.
             f.write(l)
 
@@ -132,6 +134,7 @@ def main():
     cmd_parser = argparse.ArgumentParser(description="Auto-format C and Python files.")
     cmd_parser.add_argument("-c", action="store_true", help="Format C code only")
     cmd_parser.add_argument("-p", action="store_true", help="Format Python code only")
+    cmd_parser.add_argument("-v", action="store_true", help="Enable verbose output")
     cmd_parser.add_argument("files", nargs="*", help="Run on specific globs")
     args = cmd_parser.parse_args()
 
@@ -162,13 +165,21 @@ def main():
 
     # Format C files with uncrustify.
     if format_c:
-        batch(["uncrustify", "-c", UNCRUSTIFY_CFG, "-lC", "--no-backup"], lang_files(C_EXTS))
+        command = ["uncrustify", "-c", UNCRUSTIFY_CFG, "-lC", "--no-backup"]
+        if not args.v:
+            command.append("-q")
+        batch(command, lang_files(C_EXTS))
         for file in lang_files(C_EXTS):
             fixup_c(file)
 
     # Format Python files with black.
     if format_py:
-        batch(["black", "-q", "--fast", "--line-length=99"], lang_files(PY_EXTS))
+        command = ["black", "--fast", "--line-length=99"]
+        if args.v:
+            command.append("-v")
+        else:
+            command.append("-q")
+        batch(command, lang_files(PY_EXTS))
 
 
 if __name__ == "__main__":

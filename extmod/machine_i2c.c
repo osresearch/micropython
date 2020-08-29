@@ -327,7 +327,7 @@ STATIC mp_obj_t machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, s
             extern mp_obj_t MICROPY_PY_MACHINE_I2C_MAKE_NEW(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args);
             return MICROPY_PY_MACHINE_I2C_MAKE_NEW(type, n_args, n_kw, args);
             #else
-            mp_raise_ValueError("invalid I2C peripheral");
+            mp_raise_ValueError(MP_ERROR_TEXT("invalid I2C peripheral"));
             #endif
         }
         --n_args;
@@ -367,7 +367,7 @@ STATIC mp_obj_t machine_i2c_start(mp_obj_t self_in) {
     mp_obj_base_t *self = (mp_obj_base_t *)MP_OBJ_TO_PTR(self_in);
     mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)self->type->protocol;
     if (i2c_p->start == NULL) {
-        mp_raise_msg(&mp_type_OSError, "I2C operation not supported");
+        mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("I2C operation not supported"));
     }
     int ret = i2c_p->start(self);
     if (ret != 0) {
@@ -381,7 +381,7 @@ STATIC mp_obj_t machine_i2c_stop(mp_obj_t self_in) {
     mp_obj_base_t *self = (mp_obj_base_t *)MP_OBJ_TO_PTR(self_in);
     mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)self->type->protocol;
     if (i2c_p->stop == NULL) {
-        mp_raise_msg(&mp_type_OSError, "I2C operation not supported");
+        mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("I2C operation not supported"));
     }
     int ret = i2c_p->stop(self);
     if (ret != 0) {
@@ -395,7 +395,7 @@ STATIC mp_obj_t machine_i2c_readinto(size_t n_args, const mp_obj_t *args) {
     mp_obj_base_t *self = (mp_obj_base_t *)MP_OBJ_TO_PTR(args[0]);
     mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)self->type->protocol;
     if (i2c_p->read == NULL) {
-        mp_raise_msg(&mp_type_OSError, "I2C operation not supported");
+        mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("I2C operation not supported"));
     }
 
     // get the buffer to read into
@@ -419,7 +419,7 @@ STATIC mp_obj_t machine_i2c_write(mp_obj_t self_in, mp_obj_t buf_in) {
     mp_obj_base_t *self = (mp_obj_base_t *)MP_OBJ_TO_PTR(self_in);
     mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t *)self->type->protocol;
     if (i2c_p->write == NULL) {
-        mp_raise_msg(&mp_type_OSError, "I2C operation not supported");
+        mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("I2C operation not supported"));
     }
 
     // get the buffer to write from
@@ -526,13 +526,24 @@ STATIC mp_obj_t machine_i2c_writevto(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_i2c_writevto_obj, 3, 4, machine_i2c_writevto);
 
-STATIC int read_mem(mp_obj_t self_in, uint16_t addr, uint32_t memaddr, uint8_t addrsize, uint8_t *buf, size_t len) {
-    mp_obj_base_t *self = (mp_obj_base_t *)MP_OBJ_TO_PTR(self_in);
-    uint8_t memaddr_buf[4];
+STATIC size_t fill_memaddr_buf(uint8_t *memaddr_buf, uint32_t memaddr, uint8_t addrsize) {
     size_t memaddr_len = 0;
+    if ((addrsize & 7) != 0 || addrsize > 32) {
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid addrsize"));
+    }
     for (int16_t i = addrsize - 8; i >= 0; i -= 8) {
         memaddr_buf[memaddr_len++] = memaddr >> i;
     }
+    return memaddr_len;
+}
+
+STATIC int read_mem(mp_obj_t self_in, uint16_t addr, uint32_t memaddr, uint8_t addrsize, uint8_t *buf, size_t len) {
+    mp_obj_base_t *self = (mp_obj_base_t *)MP_OBJ_TO_PTR(self_in);
+
+    // Create buffer with memory address
+    uint8_t memaddr_buf[4];
+    size_t memaddr_len = fill_memaddr_buf(&memaddr_buf[0], memaddr, addrsize);
+
     int ret = mp_machine_i2c_writeto(self, addr, memaddr_buf, memaddr_len, false);
     if (ret != memaddr_len) {
         // must generate STOP
@@ -546,11 +557,8 @@ STATIC int write_mem(mp_obj_t self_in, uint16_t addr, uint32_t memaddr, uint8_t 
     mp_obj_base_t *self = (mp_obj_base_t *)MP_OBJ_TO_PTR(self_in);
 
     // Create buffer with memory address
-    size_t memaddr_len = 0;
     uint8_t memaddr_buf[4];
-    for (int16_t i = addrsize - 8; i >= 0; i -= 8) {
-        memaddr_buf[memaddr_len++] = memaddr >> i;
-    }
+    size_t memaddr_len = fill_memaddr_buf(&memaddr_buf[0], memaddr, addrsize);
 
     // Create partial write buffers
     mp_machine_i2c_buf_t bufs[2] = {

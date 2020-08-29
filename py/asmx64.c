@@ -63,15 +63,16 @@
 #define OPCODE_SUB_R64_FROM_RM64 (0x29)
 #define OPCODE_SUB_I32_FROM_RM64 (0x81) /* /5 */
 #define OPCODE_SUB_I8_FROM_RM64  (0x83) /* /5 */
-//#define OPCODE_SHL_RM32_BY_I8    (0xc1) /* /4 */
-//#define OPCODE_SHR_RM32_BY_I8    (0xc1) /* /5 */
-//#define OPCODE_SAR_RM32_BY_I8    (0xc1) /* /7 */
+// #define OPCODE_SHL_RM32_BY_I8    (0xc1) /* /4 */
+// #define OPCODE_SHR_RM32_BY_I8    (0xc1) /* /5 */
+// #define OPCODE_SAR_RM32_BY_I8    (0xc1) /* /7 */
 #define OPCODE_SHL_RM64_CL       (0xd3) /* /4 */
+#define OPCODE_SHR_RM64_CL       (0xd3) /* /5 */
 #define OPCODE_SAR_RM64_CL       (0xd3) /* /7 */
-//#define OPCODE_CMP_I32_WITH_RM32 (0x81) /* /7 */
-//#define OPCODE_CMP_I8_WITH_RM32  (0x83) /* /7 */
+// #define OPCODE_CMP_I32_WITH_RM32 (0x81) /* /7 */
+// #define OPCODE_CMP_I8_WITH_RM32  (0x83) /* /7 */
 #define OPCODE_CMP_R64_WITH_RM64 (0x39) /* /r */
-//#define OPCODE_CMP_RM32_WITH_R32 (0x3b)
+// #define OPCODE_CMP_RM32_WITH_R32 (0x3b)
 #define OPCODE_TEST_R8_WITH_RM8  (0x84) /* /r */
 #define OPCODE_TEST_R64_WITH_RM64 (0x85) /* /r */
 #define OPCODE_JMP_REL8          (0xeb)
@@ -380,6 +381,10 @@ void asm_x64_xor_r64_r64(asm_x64_t *as, int dest_r64, int src_r64) {
 
 void asm_x64_shl_r64_cl(asm_x64_t *as, int dest_r64) {
     asm_x64_generic_r64_r64(as, dest_r64, 4, OPCODE_SHL_RM64_CL);
+}
+
+void asm_x64_shr_r64_cl(asm_x64_t *as, int dest_r64) {
+    asm_x64_generic_r64_r64(as, dest_r64, 5, OPCODE_SHR_RM64_CL);
 }
 
 void asm_x64_sar_r64_cl(asm_x64_t *as, int dest_r64) {

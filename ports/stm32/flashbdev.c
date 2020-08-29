@@ -53,7 +53,7 @@
 #define FLASH_MEM_SEG2_NUM_BLOCKS (128) // sector 11: 128k
 #endif
 
-#elif defined(STM32F401xE) || defined(STM32F411xE) || defined(STM32F446xx)
+#elif defined(STM32F401xE) || defined(STM32F411xE) || defined(STM32F412Zx) || defined(STM32F446xx)
 
 STATIC byte flash_cache_mem[0x4000] __attribute__((aligned(4))); // 16k
 #define CACHE_MEM_START_ADDR (&flash_cache_mem[0])
@@ -181,7 +181,7 @@ int32_t flash_bdev_ioctl(uint32_t op, uint32_t arg) {
 static uint8_t *flash_cache_get_addr_for_write(uint32_t flash_addr) {
     uint32_t flash_sector_start;
     uint32_t flash_sector_size;
-    uint32_t flash_sector_id = flash_get_sector_info(flash_addr, &flash_sector_start, &flash_sector_size);
+    int32_t flash_sector_id = flash_get_sector_info(flash_addr, &flash_sector_start, &flash_sector_size);
     if (flash_sector_size > FLASH_SECTOR_SIZE_MAX) {
         flash_sector_size = FLASH_SECTOR_SIZE_MAX;
     }
@@ -201,7 +201,7 @@ static uint8_t *flash_cache_get_addr_for_write(uint32_t flash_addr) {
 static uint8_t *flash_cache_get_addr_for_read(uint32_t flash_addr) {
     uint32_t flash_sector_start;
     uint32_t flash_sector_size;
-    uint32_t flash_sector_id = flash_get_sector_info(flash_addr, &flash_sector_start, &flash_sector_size);
+    int32_t flash_sector_id = flash_get_sector_info(flash_addr, &flash_sector_start, &flash_sector_size);
     if (flash_cache_sector_id == flash_sector_id) {
         // in cache, copy from there
         return (uint8_t *)CACHE_MEM_START_ADDR + flash_addr - flash_sector_start;

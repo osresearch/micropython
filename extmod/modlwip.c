@@ -144,15 +144,15 @@ STATIC mp_obj_t lwip_slip_make_new(mp_obj_t type_in, size_t n_args, size_t n_kw,
 
     ip_addr_t iplocal, ipremote;
     if (!ipaddr_aton(mp_obj_str_get_str(args[1]), &iplocal)) {
-        mp_raise_ValueError("not a valid local IP");
+        mp_raise_ValueError(MP_ERROR_TEXT("not a valid local IP"));
     }
     if (!ipaddr_aton(mp_obj_str_get_str(args[2]), &ipremote)) {
-        mp_raise_ValueError("not a valid remote IP");
+        mp_raise_ValueError(MP_ERROR_TEXT("not a valid remote IP"));
     }
 
     struct netif *n = &lwip_slip_obj.lwip_netif;
     if (netif_add(n, &iplocal, IP_ADDR_BROADCAST, &ipremote, NULL, slipif_init, ip_input) == NULL) {
-        mp_raise_ValueError("out of memory");
+        mp_raise_ValueError(MP_ERROR_TEXT("out of memory"));
     }
     netif_set_up(n);
     netif_set_default(n);
@@ -308,6 +308,7 @@ typedef struct _lwip_socket_obj_t {
     #define STATE_CONNECTING 2
     #define STATE_CONNECTED 3
     #define STATE_PEER_CLOSED 4
+    #define STATE_ACTIVE_UDP 5
     // Negative value is lwIP error
     int8_t state;
 } lwip_socket_obj_t;
@@ -597,21 +598,20 @@ STATIC mp_uint_t lwip_raw_udp_send(lwip_socket_obj_t *socket, const byte *buf, m
 STATIC mp_uint_t lwip_raw_udp_receive(lwip_socket_obj_t *socket, byte *buf, mp_uint_t len, byte *ip, mp_uint_t *port, int *_errno) {
 
     if (socket->incoming.pbuf == NULL) {
-        if (socket->timeout != -1) {
-            for (mp_uint_t retries = socket->timeout / 100; retries--;) {
-                mp_hal_delay_ms(100);
-                if (socket->incoming.pbuf != NULL) {
-                    break;
-                }
-            }
-            if (socket->incoming.pbuf == NULL) {
+        if (socket->timeout == 0) {
+            // Non-blocking socket.
+            *_errno = MP_EAGAIN;
+            return -1;
+        }
+
+        // Wait for data to arrive on UDP socket.
+        mp_uint_t start = mp_hal_ticks_ms();
+        while (socket->incoming.pbuf == NULL) {
+            if (socket->timeout != -1 && mp_hal_ticks_ms() - start > socket->timeout) {
                 *_errno = MP_ETIMEDOUT;
                 return -1;
             }
-        } else {
-            while (socket->incoming.pbuf == NULL) {
-                poll_sockets();
-            }
+            poll_sockets();
         }
     }
 
@@ -630,7 +630,7 @@ STATIC mp_uint_t lwip_raw_udp_receive(lwip_socket_obj_t *socket, byte *buf, mp_u
 
     MICROPY_PY_LWIP_EXIT
 
-    return (mp_uint_t) result;
+    return (mp_uint_t)result;
 }
 
 // For use in stream virtual methods
@@ -812,9 +812,13 @@ STATIC mp_obj_t lwip_socket_make_new(const mp_obj_type_t *type, size_t n_args, s
 
     lwip_socket_obj_t *socket = m_new_obj_with_finaliser(lwip_socket_obj_t);
     socket->base.type = &lwip_socket_type;
+    socket->timeout = -1;
+    socket->recv_offset = 0;
     socket->domain = MOD_NETWORK_AF_INET;
     socket->type = MOD_NETWORK_SOCK_STREAM;
     socket->callback = MP_OBJ_NULL;
+    socket->state = STATE_NEW;
+
     if (n_args >= 1) {
         socket->domain = mp_obj_get_int(args[0]);
         if (n_args >= 2) {
@@ -856,6 +860,7 @@ STATIC mp_obj_t lwip_socket_make_new(const mp_obj_type_t *type, size_t n_args, s
             break;
         }
         case MOD_NETWORK_SOCK_DGRAM: {
+            socket->state = STATE_ACTIVE_UDP;
             // Register our receive callback now. Since UDP sockets don't require binding or connection
             // before use, there's no other good time to do it.
             udp_recv(socket->pcb.udp, _lwip_udp_incoming, (void *)socket);
@@ -871,9 +876,6 @@ STATIC mp_obj_t lwip_socket_make_new(const mp_obj_type_t *type, size_t n_args, s
         #endif
     }
 
-    socket->timeout = -1;
-    socket->state = STATE_NEW;
-    socket->recv_offset = 0;
     return MP_OBJ_FROM_PTR(socket);
 }
 
@@ -1238,7 +1240,7 @@ STATIC mp_obj_t lwip_socket_recvfrom(mp_obj_t self_in, mp_obj_t len_in) {
     switch (socket->type) {
         case MOD_NETWORK_SOCK_STREAM: {
             memcpy(ip, &socket->peer, sizeof(socket->peer));
-            port = (mp_uint_t) socket->peer_port;
+            port = (mp_uint_t)socket->peer_port;
             ret = lwip_tcp_receive(socket, (byte *)vstr.buf, len, &_errno);
             break;
         }
@@ -1314,7 +1316,7 @@ STATIC mp_obj_t lwip_socket_settimeout(mp_obj_t self_in, mp_obj_t timeout_in) {
         timeout = -1;
     } else {
         #if MICROPY_PY_BUILTINS_FLOAT
-        timeout = 1000 * mp_obj_get_float(timeout_in);
+        timeout = (mp_uint_t)(MICROPY_FLOAT_CONST(1000.0) * mp_obj_get_float(timeout_in));
         #else
         timeout = 1000 * mp_obj_get_int(timeout_in);
         #endif

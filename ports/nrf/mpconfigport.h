@@ -29,6 +29,18 @@
 
 #include <mpconfigboard.h>
 
+#if defined(NRF51822)
+  #include "mpconfigdevice_nrf51822.h"
+#elif defined(NRF52832)
+  #include "mpconfigdevice_nrf52832.h"
+#elif defined(NRF52840)
+  #include "mpconfigdevice_nrf52840.h"
+#elif defined(NRF9160)
+  #include "mpconfigdevice_nrf9160.h"
+#else
+  #pragma error "Device not defined"
+#endif
+
 // options to control how MicroPython is built
 #ifndef MICROPY_VFS
 #define MICROPY_VFS                 (0)
@@ -105,11 +117,9 @@
 #define MICROPY_MODULE_BUILTIN_INIT (1)
 #define MICROPY_PY_ALL_SPECIAL_METHODS (0)
 #define MICROPY_PY_MICROPYTHON_MEM_INFO (1)
-#define MICROPY_PY_ARRAY_SLICE_ASSIGN (0)
 #define MICROPY_PY_BUILTINS_SLICE_ATTRS (0)
 #define MICROPY_PY_SYS_EXIT         (1)
 #define MICROPY_PY_SYS_MAXSIZE      (1)
-#define MICROPY_PY_SYS_STDFILES     (0)
 #define MICROPY_PY_SYS_STDIO_BUFFER (0)
 #define MICROPY_PY_COLLECTIONS_ORDEREDDICT (0)
 #define MICROPY_PY_MATH_SPECIAL_FUNCTIONS (0)
@@ -117,7 +127,6 @@
 #define MICROPY_PY_IO               (0)
 #define MICROPY_PY_IO_FILEIO        (0)
 #define MICROPY_PY_UERRNO           (0)
-#define MICROPY_PY_UBINASCII        (0)
 #define MICROPY_PY_URANDOM          (1)
 #define MICROPY_PY_URANDOM_EXTRA_FUNCS (1)
 #define MICROPY_PY_UCTYPES          (0)
@@ -174,6 +183,9 @@
 #define MICROPY_PY_MACHINE_RTCOUNTER (0)
 #endif
 
+#ifndef MICROPY_PY_TIME_TICKS
+#define MICROPY_PY_TIME_TICKS       (1)
+#endif
 
 #define MICROPY_ENABLE_EMERGENCY_EXCEPTION_BUF   (1)
 #define MICROPY_EMERGENCY_EXCEPTION_BUF_SIZE  (0)
@@ -316,6 +328,13 @@ extern const struct _mp_obj_module_t ble_module;
     \
     /* micro:bit root pointers */ \
     void *async_data[2]; \
+
+#define MICROPY_EVENT_POLL_HOOK \
+    do { \
+        extern void mp_handle_pending(bool); \
+        mp_handle_pending(true); \
+        __WFI(); \
+    } while (0);
 
 #define MP_PLAT_PRINT_STRN(str, len) mp_hal_stdout_tx_strn_cooked(str, len)
 

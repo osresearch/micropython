@@ -124,7 +124,7 @@ void machine_init(void) {
         if (state & RCC_SR_IWDGRSTF || state & RCC_SR_WWDGRSTF) {
             reset_cause = PYB_RESET_WDT;
         } else if (state & RCC_SR_PORRSTF
-                   #if !defined(STM32F0)
+                   #if !defined(STM32F0) && !defined(STM32F412Zx)
                    || state & RCC_SR_BORRSTF
                    #endif
                    ) {
@@ -307,18 +307,23 @@ STATIC mp_obj_t machine_freq(size_t n_args, const mp_obj_t *args) {
         return mp_obj_new_tuple(MP_ARRAY_SIZE(tuple), tuple);
     } else {
         // set
-        #if defined(STM32F0) || defined(STM32L0) || defined(STM32L4) || defined(STM32WB)
-        mp_raise_NotImplementedError("machine.freq set not supported yet");
+        #if defined(STM32F0) || defined(STM32L0) || defined(STM32L4)
+        mp_raise_NotImplementedError(MP_ERROR_TEXT("machine.freq set not supported yet"));
         #else
         mp_int_t sysclk = mp_obj_get_int(args[0]);
         mp_int_t ahb = sysclk;
-        #if defined (STM32H7)
+        #if defined(STM32H7)
         if (ahb > 200000000) {
             ahb /= 2;
         }
         #endif
+        #if defined(STM32WB)
+        mp_int_t apb1 = ahb;
+        mp_int_t apb2 = ahb;
+        #else
         mp_int_t apb1 = ahb / 4;
         mp_int_t apb2 = ahb / 2;
+        #endif
         if (n_args > 1) {
             ahb = mp_obj_get_int(args[1]);
             if (n_args > 2) {
@@ -330,7 +335,7 @@ STATIC mp_obj_t machine_freq(size_t n_args, const mp_obj_t *args) {
         }
         int ret = powerctrl_set_sysclk(sysclk, ahb, apb1, apb2);
         if (ret == -MP_EINVAL) {
-            mp_raise_ValueError("invalid freq");
+            mp_raise_ValueError(MP_ERROR_TEXT("invalid freq"));
         } else if (ret < 0) {
             void NORETURN __fatal_error(const char *msg);
             __fatal_error("can't change freq");
@@ -340,6 +345,15 @@ STATIC mp_obj_t machine_freq(size_t n_args, const mp_obj_t *args) {
     }
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_freq_obj, 0, 4, machine_freq);
+
+// idle()
+// This executies a wfi machine instruction which reduces power consumption
+// of the MCU until an interrupt occurs, at which point execution continues.
+STATIC mp_obj_t machine_idle(void) {
+    __WFI();
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_0(machine_idle_obj, machine_idle);
 
 STATIC mp_obj_t machine_lightsleep(size_t n_args, const mp_obj_t *args) {
     if (n_args != 0) {
@@ -377,7 +391,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     #if MICROPY_HW_ENABLE_RNG
     { MP_ROM_QSTR(MP_QSTR_rng),                 MP_ROM_PTR(&pyb_rng_get_obj) },
     #endif
-    { MP_ROM_QSTR(MP_QSTR_idle),                MP_ROM_PTR(&pyb_wfi_obj) },
+    { MP_ROM_QSTR(MP_QSTR_idle),                MP_ROM_PTR(&machine_idle_obj) },
     { MP_ROM_QSTR(MP_QSTR_sleep),               MP_ROM_PTR(&machine_lightsleep_obj) },
     { MP_ROM_QSTR(MP_QSTR_lightsleep),          MP_ROM_PTR(&machine_lightsleep_obj) },
     { MP_ROM_QSTR(MP_QSTR_deepsleep),           MP_ROM_PTR(&machine_deepsleep_obj) },
@@ -386,8 +400,8 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_wake_reason),         MP_ROM_PTR(&machine_wake_reason_obj) },
     #endif
 
-    { MP_ROM_QSTR(MP_QSTR_disable_irq),         MP_ROM_PTR(&pyb_disable_irq_obj) },
-    { MP_ROM_QSTR(MP_QSTR_enable_irq),          MP_ROM_PTR(&pyb_enable_irq_obj) },
+    { MP_ROM_QSTR(MP_QSTR_disable_irq),         MP_ROM_PTR(&machine_disable_irq_obj) },
+    { MP_ROM_QSTR(MP_QSTR_enable_irq),          MP_ROM_PTR(&machine_enable_irq_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_time_pulse_us),       MP_ROM_PTR(&machine_time_pulse_us_obj) },
 

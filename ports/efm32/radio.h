@@ -14,7 +14,6 @@ extern void radio_init(void);
 
 extern uint8_t radio_mac_address[8];
 
-extern void * radio_tx_buffer_get(unsigned usec_delay);
-extern int radio_tx_buffer_send(size_t len);
+extern int radio_tx_buffer_send(const void * buf, size_t len);
 
 #endif

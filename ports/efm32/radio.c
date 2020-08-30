@@ -116,8 +116,8 @@ static volatile unsigned rx_buffer_write;
 static volatile unsigned rx_buffer_read;
 static uint8_t rx_buffers[MAX_PKTS][MAC_PACKET_MAX_LENGTH];
 static uint8_t rx_buffer_copy[MAC_PACKET_MAX_LENGTH];
+static uint8_t radio_tx_buffer[MAC_PACKET_MAX_LENGTH];
 
-uint8_t radio_tx_buffer[MAC_PACKET_MAX_LENGTH];
 
 #define FRAME_TYPE_ACK	0x02
 
@@ -372,6 +372,9 @@ void radio_init(void)
 	RAIL_IEEE802154_SetShortAddress(rail, radio_short_address, 0);
 	RAIL_IEEE802154_SetPanId(rail, radio_pan_id, 0);
 
+	// always use the same tx buffer
+	RAIL_SetTxFifo(rail, radio_tx_buffer, 0, sizeof(radio_tx_buffer));
+
 	// unpause auto-ack
 	RAIL_PauseRxAutoAck(rail, false);
 
@@ -469,12 +472,15 @@ void * radio_tx_buffer_get(unsigned usec_delay)
 
 // length of message should be in radio_tx_buffer[0]
 // returns 0 if ok, non-zero if not
-int radio_tx_buffer_send(size_t len)
+int radio_tx_buffer_send(const void * buf, size_t len)
 {
-	// radio tx length including the 2 byte FCS at the end
-	*(volatile uint8_t*) &radio_tx_buffer[0] = 2 + len;
-
 	CORE_ATOMIC_IRQ_DISABLE();
+
+	// radio tx length including the 2 byte FCS at the end
+	//*(volatile uint8_t*) &radio_tx_buffer[0] = 2 + len;
+	uint8_t tx_len = 2 + len;
+	RAIL_WriteTxFifo(rail, &tx_len, 1, true);
+	RAIL_WriteTxFifo(rail, buf, len, false);
 
 	radio_tx_pending = 1;
 	radio_state = RADIO_TX;
@@ -482,7 +488,6 @@ int radio_tx_buffer_send(size_t len)
 	// do we have to quiese the radio here?
 	//RAIL_Idle(rail, RAIL_IDLE_ABORT, true);
 
-	RAIL_SetTxFifo(rail, radio_tx_buffer, len + 1, len + 1);
 	RAIL_TxOptions_t txOpt = RAIL_TX_OPTIONS_DEFAULT;
 
 	// if this is not a multipurpose frame (0x5) and the FCF has
@@ -527,14 +532,7 @@ static mp_obj_t radio_txbytes(mp_obj_t buf_obj)
 	if (len > MAC_PACKET_MAX_LENGTH - 2)
 		mp_raise_ValueError("tx length too long");
 
-	// wait up to 1 ms for the buffer
-	void * const tx_buf = radio_tx_buffer_get(1000);
-	if (!tx_buf)
-		mp_raise_ValueError("tx timeout");
-
-	memcpy(tx_buf, buf.buf, len);
-
-	int rc = radio_tx_buffer_send(buf.len);
+	int rc = radio_tx_buffer_send(buf.buf, len);
 	if (rc != 0)
 		mp_raise_ValueError("tx failed");
 

@@ -564,7 +564,7 @@ static mp_obj_t mp_radio_promiscuous(size_t n_args, const mp_obj_t *args)
 	{
 		radio_promiscuous = mp_obj_int_get_checked(args[0]);
 		RAIL_IEEE802154_SetPromiscuousMode(rail, radio_promiscuous);
-		printf("radio: %s promiscuous mode\n", radio_promiscuous ? "enabling" : "disabling");
+		//printf("radio: %s promiscuous mode\n", radio_promiscuous ? "enabling" : "disabling");
 	}
 
 	return MP_OBJ_NEW_SMALL_INT(radio_promiscuous);
@@ -582,7 +582,7 @@ static mp_obj_t mp_radio_short_address(size_t n_args, const mp_obj_t *args)
 	{
  		radio_short_address = mp_obj_int_get_checked(args[0]);
 		RAIL_IEEE802154_SetShortAddress(rail, radio_short_address, 0);
-		printf("radio: addr %04x\n", radio_short_address);
+		//printf("radio: addr %04x\n", radio_short_address);
 	}
 
 	if (radio_short_address == 0xFFFF)
@@ -602,7 +602,7 @@ static mp_obj_t mp_radio_pan_id(size_t n_args, const mp_obj_t *args)
 	{
 		radio_pan_id = mp_obj_int_get_checked(args[0]);
 		RAIL_IEEE802154_SetPanId(rail, radio_pan_id, 0);
-		printf("radio: pan %04x\n", radio_pan_id);
+		//printf("radio: pan %04x\n", radio_pan_id);
 	}
 
 	if (radio_pan_id == 0xFFFF)

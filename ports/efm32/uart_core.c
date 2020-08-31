@@ -28,7 +28,7 @@
 
 #ifdef CONFIG_RX_IRQ
 
-#define UART_RX_MASK 0x3F
+#define UART_RX_MASK 0x7F
 static volatile uint8_t uart_rx_buf[UART_RX_MASK+1];
 static volatile uint8_t uart_rx_head;
 static volatile uint8_t uart_rx_tail;

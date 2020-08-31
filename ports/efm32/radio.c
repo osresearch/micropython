@@ -447,34 +447,10 @@ static mp_obj_t radio_rxbytes_get(void)
 MP_DEFINE_CONST_FUN_OBJ_0(radio_rxbytes_obj, radio_rxbytes_get);
 
 
-void * radio_tx_buffer_get(unsigned usec_delay)
-{
-	unsigned delay = 0;
-
-	// if we don't get a packet after a while, assume that
-	// something has hung and return the packet anyway
-	// should flag this
-	while(radio_tx_pending)
-	{
-		if (delay >= usec_delay)
-		{
-			printf("tx stall\n");
-			break;
-		}
-
-		mp_hal_delay_us(100);
-		delay += 100;
-	}
-
-	return &radio_tx_buffer[1];
-}
-
-
-// length of message should be in radio_tx_buffer[0]
 // returns 0 if ok, non-zero if not
 int radio_tx_buffer_send(const void * buf, size_t len)
 {
-	CORE_ATOMIC_IRQ_DISABLE();
+	//CORE_ATOMIC_IRQ_DISABLE();
 
 	// radio tx length including the 2 byte FCS at the end
 	//*(volatile uint8_t*) &radio_tx_buffer[0] = 2 + len;
@@ -511,7 +487,7 @@ int radio_tx_buffer_send(const void * buf, size_t len)
 	if (rc != 0)
 		radio_tx_pending = 0;
 
-	CORE_ATOMIC_IRQ_ENABLE();
+	//CORE_ATOMIC_IRQ_ENABLE();
 
 	return rc;
 }

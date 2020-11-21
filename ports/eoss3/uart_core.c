@@ -8,7 +8,6 @@
 #include "eoss3_dev.h"
 #include "s3x_clock_hal.h"
 
-
 // Receive single character
 int mp_hal_stdin_rx_chr(void)
 {
@@ -19,17 +18,41 @@ int mp_hal_stdin_rx_chr(void)
     return c;
 }
 
-// Send string of given length
-void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len)
+static void uart_putc(const char c)
 {
-    while (len--) {
         // wait for the TX fifo to be not full
         while (UART->UART_TFR & UART_TFR_TX_FIFO_FULL)
 		;
 
-        UART->UART_DR = *str++;
-    }
+        UART->UART_DR = c;
 }
+
+// Send string of given length
+void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len)
+{
+    while (len--)
+	uart_putc(*str++);
+}
+
+// Send nul terminated string
+void mp_hal_stdout_tx_str(const char *str)
+{
+    while (*str)
+	uart_putc(*str++);
+}
+
+// Send a string of a given length, but replace \n with \r\n
+void mp_hal_stdout_tx_strn_cooked(const char *str, mp_uint_t len)
+{
+	while (len--)
+	{
+		const char c = *str++;
+		if (c == '\n')
+			uart_putc('\r');
+		uart_putc(c);
+	}
+}
+
 
 void mp_hal_uart_init(const unsigned baud_in)
 {

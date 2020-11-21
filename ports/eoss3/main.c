@@ -31,7 +31,7 @@ void eoss3_init(void);
 
 static char *stack_top;
 #if MICROPY_ENABLE_GC
-static char heap[2048];
+static char heap[262144];
 #endif
 
 int main(int argc, char **argv) {

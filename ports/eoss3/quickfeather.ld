@@ -4,10 +4,7 @@ ENTRY(Reset_Handler)
 MEMORY
 {
 	rom (rx)  : ORIGIN = 0x00000000, LENGTH = 0x00027000
-	ram (rwx) : ORIGIN = 0x20027000, LENGTH = 0x0003c800
-	spiram (rw) : ORIGIN = 0x20063800, LENGTH = 0x0000800
-	HWA (rw)  : ORIGIN = 0x20064000, LENGTH = 0x00018000
-	shm       : ORIGIN = 0x2007C000, LENGTH = 0x00004000
+	ram (rwx) : ORIGIN = 0x20027000, LENGTH = 0x00059000
 }
 
 SECTIONS
@@ -95,13 +92,6 @@ SECTIONS
 		_edata = __data_end__;
 	} > ram AT > rom
 
-	.Hardware (NOLOAD) :
-	{
-	  __hwa_start__ = .;  /* create symbol for start of section */
-	  *(*HWA*)            /* keep my variable even if not referenced */
-	  __hwa_end__ = .;   /* create symbol for end of section */
-	} > HWA
-
 	.bss :
 	{
 		. = ALIGN(4);
@@ -113,28 +103,6 @@ SECTIONS
 		__bss_end__ = .;
 		_ebss = __bss_end__;
 	} > ram
-
-    .rtos :
-    {
-        . = ALIGN(4);
-        __rtos_start__ = .;
-        *(.rtos*)
-        . = ALIGN(4);
-        __rtos_end__ = .;
-        _ertos = __rtos_end__;
-    } > ram
-
-    /* SPI shared addresses are fixed: */
-    .BLE_SPI_TX_LOCATION 0x20063800 (NOLOAD) :
-    {
-        . = ALIGN(4);
-        KEEP(*(.BLE_SPI_TX_LOCATION)) /* keep it even if not referenced */
-    } > spiram
-    .BLE_SPI_RX_LOCATION  0x20063C00 (NOLOAD) :
-    {
-        . = ALIGN(4);
-        KEEP(*(.BLE_SPI_RX_LOCATION)) /* keep it even if not referenced */
-    } > spiram
 
 	.heap (COPY):
 	{

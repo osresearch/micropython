@@ -30,9 +30,7 @@ void mp_hal_uart_init(const unsigned baud);
 void eoss3_init(void);
 
 static char *stack_top;
-#if MICROPY_ENABLE_GC
-static char heap[2048];
-#endif
+static char heap[32768];
 
 int main(int argc, char **argv) {
     int stack_dummy;

@@ -102,5 +102,12 @@ $(BUILD)/firmware.elf: $(OBJ)
 $(BUILD)/firmware.bin: $(BUILD)/firmware.elf
 	$(Q)$(OBJCOPY) -O binary -j .isr_vector -j .text -j .data $^ $(BUILD)/firmware.bin
 
+flash: $(BUILD)/firmware.bin
+	python3 ../../../TinyFPGA-Programmer-Application/tinyfpga-programmer-gui.py  \
+		--m4app $< \
+		--port /dev/ttyACM1 \
+		--reset \
+
+
 
 include $(TOP)/py/mkrules.mk

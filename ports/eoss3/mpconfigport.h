@@ -48,6 +48,11 @@
 #define MICROPY_MODULE_FROZEN_MPY   (1)
 #define MICROPY_CPYTHON_COMPAT      (0)
 #define MICROPY_MODULE_GETATTR      (0)
+#define MICROPY_STREAMS_NON_BLOCK   (1)
+#define MICROPY_STREAMS_POSIX_API   (1)
+#define MICROPY_ENABLE_SCHEDULER    (1)
+#define MICROPY_KBD_EXCEPTION       (1)
+
 
 // type definitions for the specific machine
 

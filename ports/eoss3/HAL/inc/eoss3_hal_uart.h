@@ -159,7 +159,7 @@ typedef struct
 	bool					fBaremetal;
 }UartHandler;
 
-
+#if 0
 void uart_pm_update( int uartid, int is_wakeup );
 
 void uart_init(int uartid, PadConfig* ppadConfigTx, PadConfig* ppadConfigRx, const UartHandler *pConfig );
@@ -253,6 +253,7 @@ int uart_tx_is_fifo_empty(int uartid);
 extern int uart_tx_is_fifo_half_empty(int uartid);
 extern int uart_tx_get_fifo_status(int uartid);
 extern int uart_tx_get_fifo_space_available(int uartid);
+#endif
 
 /*
  * @}

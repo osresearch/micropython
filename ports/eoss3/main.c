@@ -133,6 +133,8 @@ void Default_Handler(void) {
     }
 }
 
+extern void uart_handler(void);
+
 const uint32_t isr_vector[] __attribute__((section(".isr_vector"))) = {
     (uint32_t)&__stack,
     (uint32_t)&Reset_Handler,
@@ -150,6 +152,7 @@ const uint32_t isr_vector[] __attribute__((section(".isr_vector"))) = {
     0,
     (uint32_t)&Default_Handler, // PendSV_Handler
     (uint32_t)&Default_Handler, // SysTick_Handler
+	[0x5c/4] = (uint32_t) uart_handler,
 };
 
 void _start(void) {

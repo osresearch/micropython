@@ -44,6 +44,8 @@
 #define MICROPY_PY_SYS              (1)
 #define MICROPY_PY_UBINASCII        (1)
 #define MICROPY_PY_MACHINE          (1)
+#define MICROPY_PY_MACHINE_SPI      (1)
+#define MICROPY_PY_MACHINE_SPIFLASH (1)
 #define MICROPY_PY_MATH             (1)
 #define MICROPY_MODULE_FROZEN_MPY   (1)
 #define MICROPY_CPYTHON_COMPAT      (0)
@@ -53,12 +55,14 @@
 #define MICROPY_ENABLE_SCHEDULER    (1)
 #define MICROPY_KBD_EXCEPTION       (1)
 
-
 // type definitions for the specific machine
 
 typedef intptr_t mp_int_t; // must be pointer size
 typedef uintptr_t mp_uint_t; // must be pointer size
 typedef long mp_off_t;
+
+#define MP_HAL_PIN_FMT "%d"
+#define mp_hal_pin_name(x) "?"
 
 // extra built in names to add to the global namespace
 #define MICROPY_PORT_BUILTINS \

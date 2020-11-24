@@ -50,6 +50,7 @@ SRC_C = \
 	moduos.c \
 	modmachine.c \
 	uart_core.c \
+	spi.c \
 
 PYLIB_SRC_C = \
 	lib/utils/printf.c \
@@ -73,8 +74,8 @@ PYMOD_SRC_C = \
 
 NOT_YET = \
 	extmod/utime_mphal.c \
+	extmod/machine_spiflash.c \
 	drivers/memory/spiflash.c \
-	drivers/bus/softspi.c \
 
 SRC_QSTR += $(SRC_C)
 SRC_QSTR += $(PYLIB_SRC_C)

@@ -38,8 +38,8 @@
 #include "extmod/machine_mem.h"
 //#include "extmod/machine_pin.h"
 //#include "extmod/machine_pwm.h"
-//#include "extmod/machine_spi.h"
-//#include "extmod/machine_spiflash.h"
+#include "extmod/machine_spi.h"
+#include "extmod/machine_spiflash.h"
 //#include "zrepl.h"
 //#include "em_core.h"
 
@@ -82,6 +82,9 @@ machine_reset(void) {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(machine_reset_obj, machine_reset);
 
+extern const mp_obj_type_t mp_machine_eoss3_spi_type;
+
+
 #if 0
 extern const mp_obj_module_t mp_module_crypto;
 
@@ -121,12 +124,14 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_mem16),               MP_ROM_PTR(&machine_mem16_obj) },
     { MP_ROM_QSTR(MP_QSTR_mem32),               MP_ROM_PTR(&machine_mem32_obj) },
 
+    { MP_ROM_QSTR(MP_QSTR_SPI),                 MP_ROM_PTR(&mp_machine_eoss3_spi_type) },
+    //{ MP_ROM_QSTR(MP_QSTR_SPIFlash),            MP_ROM_PTR(&mp_machine_spiflash_type) },
+
 #if 0
     { MP_ROM_QSTR(MP_QSTR_Crypto),              MP_ROM_PTR(&mp_module_crypto) },
     { MP_ROM_QSTR(MP_QSTR_Pin),                 MP_ROM_PTR(&machine_pin_type) },
     { MP_ROM_QSTR(MP_QSTR_PWM),                 MP_ROM_PTR(&machine_pwm_type) },
     { MP_ROM_QSTR(MP_QSTR_SPI),                 MP_ROM_PTR(&mp_machine_soft_spi_type) },
-    { MP_ROM_QSTR(MP_QSTR_SPIFlash),            MP_ROM_PTR(&mp_machine_spiflash_type) },
     { MP_ROM_QSTR(MP_QSTR_stdio_poll),          MP_ROM_PTR(&machine_stdio_poll_obj) },
     { MP_ROM_QSTR(MP_QSTR_zrepl),               MP_ROM_PTR(&machine_zrepl_obj) },
 #endif

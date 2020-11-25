@@ -63,6 +63,7 @@ typedef long mp_off_t;
 
 #define MP_HAL_PIN_FMT "%d"
 #define mp_hal_pin_name(x) "?"
+#define mp_hal_pin_obj_t uint32_t
 
 // extra built in names to add to the global namespace
 #define MICROPY_PORT_BUILTINS \

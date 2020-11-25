@@ -39,7 +39,11 @@
 //#include "extmod/machine_pin.h"
 //#include "extmod/machine_pwm.h"
 #include "extmod/machine_spi.h"
-#include "extmod/machine_spiflash.h"
+#include "machine_spiflash.h"
+
+#include "Fw_global_config.h"
+#include "eoss3_dev.h"
+
 //#include "zrepl.h"
 //#include "em_core.h"
 
@@ -77,13 +81,20 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_deepsleep_obj, 0, 1, machine_deepsle
 
 static mp_obj_t
 machine_reset(void) {
-	//NVIC_SystemReset();
+	NVIC_SystemReset();
 	return mp_const_none; // better not reach here!
 }
 MP_DEFINE_CONST_FUN_OBJ_0(machine_reset_obj, machine_reset);
 
-extern const mp_obj_type_t mp_machine_eoss3_spi_type;
+static mp_obj_t
+machine_bootloader(void) {
+	PMU->MISC_POR_3 = REBOOT_CAUSE_FLASHING;
+	NVIC_SystemReset();
+	return mp_const_none; // better not reach here!
+}
+MP_DEFINE_CONST_FUN_OBJ_0(machine_bootloader_obj, machine_bootloader);
 
+extern const mp_obj_type_t mp_machine_eoss3_spi_type;
 
 #if 0
 extern const mp_obj_module_t mp_module_crypto;
@@ -115,17 +126,18 @@ MP_DEFINE_CONST_FUN_OBJ_1(machine_zrepl_obj, machine_zrepl);
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_umachine) },
     { MP_ROM_QSTR(MP_QSTR_reset),               MP_ROM_PTR(&machine_reset_obj) },
+    { MP_ROM_QSTR(MP_QSTR_bootloader),          MP_ROM_PTR(&machine_bootloader_obj) },
+
 /*
     { MP_ROM_QSTR(MP_QSTR_unique_id),           MP_ROM_PTR(&machine_unique_id_obj) },
     { MP_ROM_QSTR(MP_QSTR_soft_reset),          MP_ROM_PTR(&machine_soft_reset_obj) },
-    { MP_ROM_QSTR(MP_QSTR_bootloader),          MP_ROM_PTR(&machine_bootloader_obj) },
 */
     { MP_ROM_QSTR(MP_QSTR_mem8),                MP_ROM_PTR(&machine_mem8_obj) },
     { MP_ROM_QSTR(MP_QSTR_mem16),               MP_ROM_PTR(&machine_mem16_obj) },
     { MP_ROM_QSTR(MP_QSTR_mem32),               MP_ROM_PTR(&machine_mem32_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_SPI),                 MP_ROM_PTR(&mp_machine_eoss3_spi_type) },
-    //{ MP_ROM_QSTR(MP_QSTR_SPIFlash),            MP_ROM_PTR(&mp_machine_spiflash_type) },
+    { MP_ROM_QSTR(MP_QSTR_SPIFlash),            MP_ROM_PTR(&mp_machine_spiflash_type) },
 
 #if 0
     { MP_ROM_QSTR(MP_QSTR_Crypto),              MP_ROM_PTR(&mp_module_crypto) },

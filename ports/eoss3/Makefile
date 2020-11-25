@@ -50,7 +50,8 @@ SRC_C = \
 	moduos.c \
 	modmachine.c \
 	uart_core.c \
-	spi.c \
+	machine_spi.c \
+	machine_spiflash.c \
 
 PYLIB_SRC_C = \
 	lib/utils/printf.c \
@@ -64,6 +65,7 @@ PYMOD_SRC_C = \
 	extmod/modubinascii.c \
 	extmod/machine_mem.c \
 	extmod/machine_spi.c \
+	drivers/memory/spiflash.c \
 	\
 	extmod/vfs.c \
 	extmod/vfs_reader.c \
@@ -74,8 +76,6 @@ PYMOD_SRC_C = \
 
 NOT_YET = \
 	extmod/utime_mphal.c \
-	extmod/machine_spiflash.c \
-	drivers/memory/spiflash.c \
 
 SRC_QSTR += $(SRC_C)
 SRC_QSTR += $(PYLIB_SRC_C)
@@ -105,9 +105,9 @@ $(BUILD)/firmware.bin: $(BUILD)/firmware.elf
 
 flash: $(BUILD)/firmware.bin
 	python3 ../../../TinyFPGA-Programmer-Application/tinyfpga-programmer-gui.py  \
-		--m4app $< \
 		--port /dev/ttyACM1 \
 		--reset \
+		--m4app $< \
 
 
 

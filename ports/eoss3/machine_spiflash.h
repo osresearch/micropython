@@ -28,8 +28,6 @@
 
 #include "py/obj.h"
 #include "py/mphal.h"
-#include "extmod/machine_pin.h"
-#include "extmod/machine_spi.h"
 #include "drivers/memory/spiflash.h"
 
 typedef struct _mp_machine_spiflash_obj_t {

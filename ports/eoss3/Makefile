@@ -101,7 +101,14 @@ $(BUILD)/firmware.elf: $(OBJ)
 	$(Q)$(SIZE) $@
 
 $(BUILD)/firmware.bin: $(BUILD)/firmware.elf
-	$(Q)$(OBJCOPY) -O binary -j .isr_vector -j .text -j .data $^ $(BUILD)/firmware.bin
+	$(Q)$(OBJCOPY) \
+		-O binary \
+		-j .isr_vector \
+		-j .text \
+		-j .data \
+		$^ \
+		$@
+	$(Q)truncate -s '%256' $@
 
 flash: $(BUILD)/firmware.bin
 	python3 ../../../TinyFPGA-Programmer-Application/tinyfpga-programmer-gui.py  \

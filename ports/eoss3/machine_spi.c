@@ -17,8 +17,15 @@ eoss3_spi_init(
 	printf("%s: BAUDR=%02x\n", __func__, (int)SPI_MS->BAUDR);
 	// enable the SPI hardware, leaving everything else
 	// to the default settings.
-	SPI_MS->SSIENR = SSIENR_SSI_EN;
 	//SPI_MS->BAUDR = 100; // default? who knows.
+		SPI_MS->SSIENR = 0;
+		SPI_MS->BAUDR = 8; // default? who knows.
+		SPI_MS->CTRLR0 = CTRLR0_TMOD_EEPROM | CTRLR0_DFS_8_BIT;
+		SPI_MS->CTRLR1 = 0; // byte at a time
+		SPI_MS->IMR = 0;
+
+		// turn off the SPI DMA controller since we're busy waiting
+		DMA_SPI_MS->DMA_INTR_MASK = 0;
 }
 
 static void
@@ -38,14 +45,52 @@ static void eoss3_spi_transfer(
 	uint8_t * dest
 )
 {
-	// select device 1?
-	SPI_MS->SER = 1 << 0;
+	// select device and configure dma for the length of data
+	SPI_MS->SSIENR = SSIENR_SSI_DISABLE;
+	SPI_MS->SER = 0;
+	SPI_MS->IMR = 0;
+	SPI_MS->CTRLR1 = len - 1;
+	SPI_MS->SSIENR = SSIENR_SSI_EN;
 
+#if 1
+	// wait for TxFifo empty and not busy
+	while ((SPI_MS->SR & (SR_TFE | SR_BUSY)) != SR_TFE)
+		;
+
+	// send all of the data
+	for(size_t i = 0 ; i < len ; i++)
+	{
+		const uint8_t out = src ? *src++ : 0xFF;
+		SPI_MS->DR0 = out;
+	}
+
+	// now select the chip? wtf quicklogic
+	SPI_MS->SER = SER_SS_0_N_SELECTED;
+
+	// receive all of the data
+	for(size_t i = 0 ; i < len ; i++)
+	{
+		unsigned spin_count = 0;
+		while (!(SPI_MS->SR & SR_RFNE))
+		{
+			if (spin_count++ > 100)
+			{
+				printf("%s: RX FIFO failed\n", __func__);
+				SPI_MS->SSIENR = SSIENR_SSI_DISABLE;
+				return;
+			}
+		}
+
+		const uint8_t in = SPI_MS->DR0;
+		if (dest)
+			*dest++ = in;
+	}
+#else
 	while(len)
 	{
 		// fill up the fifo or send all of the data
 		// Where is the 32 defined?
-		size_t fifo_len = 32 - SPI_MS->TXFLR;
+		size_t fifo_len = 1 - SPI_MS->TXFLR;
 		if (fifo_len > len)
 			fifo_len = len;
 
@@ -59,7 +104,7 @@ static void eoss3_spi_transfer(
 
 		// wait for the fifo to drain
 		printf("%s: wait\n", __func__);
-		while((SPI_MS->SR & (SR_TFE|SR_BUSY)) != SR_TFE)
+		while((SPI_MS->SR & (SR_RFNE|SR_BUSY)) == SR_RFNE)
 			;
 
 		// copy the rx data out of the fifo
@@ -74,8 +119,10 @@ static void eoss3_spi_transfer(
 		len -= fifo_len;
 		printf("%s: loop\n", __func__);
 	}
+#endif
 
 	// unselect any devices
+	SPI_MS->SSIENR = 0;
 	SPI_MS->SER = 0;
 	printf("%s: done\n", __func__);
 }

@@ -19,7 +19,7 @@ eoss3_spi_init(
 	// to the default settings.
 	//SPI_MS->BAUDR = 100; // default? who knows.
 		SPI_MS->SSIENR = 0;
-		SPI_MS->BAUDR = 8; // default? who knows.
+		SPI_MS->BAUDR = 2; // default? who knows.
 		SPI_MS->CTRLR0 = CTRLR0_TMOD_EEPROM | CTRLR0_DFS_8_BIT;
 		SPI_MS->CTRLR1 = 0; // byte at a time
 		SPI_MS->IMR = 0;
@@ -53,9 +53,12 @@ static void eoss3_spi_transfer(
 	SPI_MS->SSIENR = SSIENR_SSI_EN;
 
 #if 1
+	printf("sr=%08x txflr=%d rxflr=%d\n", (int) SPI_MS->SR, (int) SPI_MS->TXFLR, (int) SPI_MS->RXFLR);
+
 	// wait for TxFifo empty and not busy
 	while ((SPI_MS->SR & (SR_TFE | SR_BUSY)) != SR_TFE)
 		;
+	printf("sr=%08x txflr=%d rxflr=%d\n", (int) SPI_MS->SR, (int) SPI_MS->TXFLR, (int) SPI_MS->RXFLR);
 
 	// send all of the data
 	for(size_t i = 0 ; i < len ; i++)
@@ -64,8 +67,12 @@ static void eoss3_spi_transfer(
 		SPI_MS->DR0 = out;
 	}
 
+	printf("sr=%08x txflr=%d rxflr=%d\n", (int) SPI_MS->SR, (int) SPI_MS->TXFLR, (int) SPI_MS->RXFLR);
+
 	// now select the chip? wtf quicklogic
 	SPI_MS->SER = SER_SS_0_N_SELECTED;
+
+	printf("sr=%08x txflr=%d rxflr=%d\n", (int) SPI_MS->SR, (int) SPI_MS->TXFLR, (int) SPI_MS->RXFLR);
 
 	// receive all of the data
 	for(size_t i = 0 ; i < len ; i++)
@@ -73,9 +80,10 @@ static void eoss3_spi_transfer(
 		unsigned spin_count = 0;
 		while (!(SPI_MS->SR & SR_RFNE))
 		{
-			if (spin_count++ > 100)
+			if (spin_count++ > 1000000)
 			{
-				printf("%s: RX FIFO failed\n", __func__);
+				printf("%s: RX FIFO failed at %d\n", __func__, (int) i);
+				break;
 				SPI_MS->SSIENR = SSIENR_SSI_DISABLE;
 				return;
 			}
@@ -85,6 +93,8 @@ static void eoss3_spi_transfer(
 		if (dest)
 			*dest++ = in;
 	}
+
+	printf("sr=%08x txflr=%d rxflr=%d\n", (int) SPI_MS->SR, (int) SPI_MS->TXFLR, (int) SPI_MS->RXFLR);
 #else
 	while(len)
 	{

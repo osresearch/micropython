@@ -72,10 +72,10 @@ eoss3_spi_ioctl(
 			(int) SPI_MS->IMR
 		);
 		SPI_MS->SSIENR = 0;
-		SPI_MS->BAUDR = 32; // default? who knows.
+		SPI_MS->BAUDR = 2; // default? who knows.
 		SPI_MS->CTRLR0 = CTRLR0_TMOD_EEPROM | CTRLR0_DFS_8_BIT;
+		SPI_MS->CTRLR1 = 0; // byte at a time
 		SPI_MS->IMR = 0;
-		SPI_MS->SSIENR = SSIENR_SSI_EN;
 
 		// turn off the SPI DMA controller since we're busy waiting
 		DMA_SPI_MS->DMA_INTR_MASK = 0;
@@ -86,10 +86,11 @@ eoss3_spi_ioctl(
 		SPI_MS->SSIENR = 0;
 		return 0;
 	case MP_QSPI_IOCTL_BUS_ACQUIRE:
-		printf("%s: select\n", __func__);
+		//printf("%s: select\n", __func__);
 		return 0;
     	case MP_QSPI_IOCTL_BUS_RELEASE:
-		printf("%s: unselect\n", __func__);
+		//printf("%s: unselect\n", __func__);
+		SPI_MS->SSIENR = 0;
 		SPI_MS->SER = 0;
 		return 0;
 	default:
@@ -101,171 +102,135 @@ eoss3_spi_ioctl(
 static void
 eoss3_spi_transfer(
 	void * self,
-	size_t len,
-	const uint8_t * src,
-	uint8_t * dest
+	const uint8_t * tx,
+	size_t tx_len,
+	uint8_t * rx,
+	size_t rx_len
 )
 {
-	if (len == 0)
+	//printf("%s: tx %d, rx %d\n", __func__, tx_len, rx_len);
+
+	if ((tx_len != 0 && !tx) || (rx_len != 0 && !rx))
+	{
+		printf("%s: parameter mismatch tx %p %d, rx %p %d\n",
+			__func__, tx, tx_len, rx, rx_len);
+		return;
+	}
+	if (tx_len == 0 && rx_len == 0)
 		return;
 
-	printf("%s: %s %u bytes\n",
-		__func__,
-		src && dest ? "BI" : src ? "TX" : dest ? "RX" : "??",
-		(unsigned) len
-	);
-#if 1
-	SPI_MS->CTRLR1 = 0;
-	size_t rx_len = 0;
-	size_t tx_len = 0;
+	// select device and configure dma for the length of data
+	SPI_MS->SSIENR = SSIENR_SSI_DISABLE;
+	SPI_MS->SER = 0;
 
-	while(rx_len < len)
+	// if there is a receive, round up rx_len to a multiple of four
+	if (rx_len)
 	{
-		printf("tx=%d/%d rx=%d/%d\n",
-			(int) tx_len, (int) SPI_MS->TXFLR,
-			(int) rx_len, (int) SPI_MS->RXFLR);
-
-		if (tx_len < len)
-		{
-			const size_t max_burst = 16;
-			size_t fifo_len = max_burst - SPI_MS->TXFLR;
-
-			if (fifo_len > len - tx_len)
-				fifo_len = len - tx_len;
-			tx_len += fifo_len;
-
-			for(size_t i = 0 ; i < fifo_len ; i++)
-			{
-				const int before = SPI_MS->TXFLR;
-				const uint8_t out = src ? *(src++) : 0xFF;
-				SPI_MS->DR0 = out;
-				printf("txflr=%d->%d rx=%d\n", before, (int) SPI_MS->TXFLR, (int) SPI_MS->RXFLR);
-			}
-		}
-
-		// wait for the SPI hardware to no longer be busy
-		//while ((SPI_MS->SR & (SR_BUSY | SR_RFNE)) == SR_BUSY)
-		//while ((SPI_MS->SR & SR_BUSY) == SR_BUSY)
-			//;
-
-		// receive any bytes in the fifo
-		while(rx_len < tx_len && SPI_MS->RXFLR != 0)
-		{
-			const int before = SPI_MS->RXFLR;
-			const uint8_t in = SPI_MS->DR0;
-			if (dest)
-				*(dest++) = in;
-			rx_len++;
-			printf("rxflr=%d->%d\n", before, (int) SPI_MS->RXFLR);
-		}
+		const size_t dma_len = ((rx_len + 3) / 4) * 4 - 1;
+		SPI_MS->CTRLR1 = dma_len;
+		SPI_MS->IMR = ISR_RXFIM_ACTIVE;
+		DMA_SPI_MS->DMA_DEST_ADDR = (uint32_t) rx;
+		DMA_SPI_MS->DMA_XFER_CNT = dma_len;
+		DMA_SPI_MS->DMA_INTR_MASK = DMA_RX_DATA_AVAIL_INTR_MSK;
+		DMA_SPI_MS->DMA_CTRL = DMA_CTRL_START_BIT;
+	} else {
+		// no DMA
+		SPI_MS->CTRLR1 = 0;
+		SPI_MS->IMR = 0;
+		DMA_SPI_MS->DMA_INTR_MASK = 0;
 	}
 
-	int count = 0;
-	while(SPI_MS->RXFLR != 0)
-	{
-		SPI_MS->DR0;
-		count++;
-	}
+	SPI_MS->SSIENR = SSIENR_SSI_EN;
 
-	printf("%s: done %d drained %d\n", __func__, count, (int) SPI_MS->RXFLR);
-#else
-	SPI_MS->CTRLR1 = len - 1;
-    uint32_t tx_len = src ? len : 0;
-    uint32_t rx_len = dest ? len : 0;
-    uint32_t index_tx = 0, index_rx = 0;
-    uint32_t fifo_len, index;
-    while (tx_len)
-    {
-        fifo_len = 32 - SPI_MS->TXFLR;
-        fifo_len = fifo_len < tx_len ? fifo_len : tx_len;
-	for (index = 0; index < fifo_len; index++)
-	    SPI_MS->DR0 = src[index_tx++];
-        tx_len -= fifo_len;
-        while(rx_len)
-        {
-            fifo_len = SPI_MS->RXFLR;
-            if(fifo_len==0)
-            {
-                if(index_tx - index_rx < 32)
-                    break;
-            }
-            fifo_len = fifo_len < rx_len ? fifo_len : rx_len;
-	    for (index = 0; index < fifo_len; index++)
-		dest[index_rx++] = (uint8_t)SPI_MS->DR0;
+	// wait for TxFifo empty and not busy
+	while ((SPI_MS->SR & (SR_TFE | SR_BUSY)) != SR_TFE)
+		;
 
-            rx_len -= fifo_len;
-        }
-    }
+	// send the tx data (should check maximum length)
+	for(size_t i = 0 ; i < tx_len ; i++)
+		SPI_MS->DR0 = *tx++;
 
-    while ((SPI_MS->SR & 0x05) != 0x04)
-        ;
-    while (rx_len)
-    {
-        fifo_len = SPI_MS->RXFLR;
-        fifo_len = fifo_len < rx_len ? fifo_len : rx_len;
-	  for (index = 0; index < fifo_len; index++)
-	      dest[index_rx++] = (uint8_t)SPI_MS->DR0;
+	// select the output, which starts draining the FIFO and the DMA?
+	SPI_MS->SER = SER_SS_0_N_SELECTED;
 
-        rx_len -= fifo_len;
-    }
-#endif
+	// wait for TxFifo empty and not busy
+	// which means that the DMA is over.
+	while ((SPI_MS->SR & (SR_TFE | SR_BUSY)) != SR_TFE)
+		;
+
+	// Shut down the SPI hardware and DMA
+	SPI_MS->SSIENR = SSIENR_SSI_DISABLE;
+	SPI_MS->SER = 0;
+	SPI_MS->IMR = 0;
+	DMA_SPI_MS->DMA_INTR_MASK = 0;
+	DMA_SPI_MS->DMA_CTRL = DMA_CTRL_STOP_BIT;
 }
 
 static void eoss3_write_cmd_data(void *self, uint8_t cmd, size_t len, uint32_t data)
 {
-	uint8_t data_buf[] = {
-		(data >> 24) & 0xFF,
-		(data >> 16) & 0xFF,
-		(data >>  8) & 0xFF,
-		(data >>  0) & 0xFF,
-	};
-	eoss3_spi_cs(1);
-	eoss3_spi_transfer(self, 1, &cmd, NULL);
-	eoss3_spi_transfer(self, len, data_buf, NULL);
-	eoss3_spi_cs(0);
+	uint8_t data_buf[5] = { cmd };
+	switch(len)
+	{
+	case 1:
+		data_buf[1] = (data >> 0) & 0xFF;
+		break;
+	case 2:
+		data_buf[1] = (data >> 8) & 0xFF;
+		data_buf[2] = (data >> 0) & 0xFF;
+		break;
+	case 3:
+		data_buf[1] = (data >> 16) & 0xFF;
+		data_buf[2] = (data >>  8) & 0xFF;
+		data_buf[3] = (data >>  0) & 0xFF;
+		break;
+	case 4:
+		data_buf[1] = (data >> 24) & 0xFF;
+		data_buf[2] = (data >> 16) & 0xFF;
+		data_buf[3] = (data >>  8) & 0xFF;
+		data_buf[4] = (data >>  0) & 0xFF;
+		break;
+	}
+		
+	eoss3_spi_transfer(self, data_buf, 1 + len, NULL, 0);
 }
 
 static void eoss3_write_cmd_addr_data(void *self, uint8_t cmd, uint32_t addr, size_t len, const uint8_t *src)
 {
-	uint8_t addr_buf[4];
-	size_t addr_len = mp_spi_set_addr_buff(addr_buf, addr);
+	uint8_t cmd_buf[4+len];
+	cmd_buf[0] = cmd;
+	cmd_buf[1] = (addr >> 16) & 0xFF;
+	cmd_buf[2] = (addr >>  8) & 0xFF;
+	cmd_buf[3] = (addr >>  0) & 0xFF;
 
-	printf("%s: cmd=%02x addr=%08x\n", __func__, cmd, (int) addr);
+	memcpy(cmd_buf + 4, src, len);
 
-	eoss3_spi_cs(1);
-	eoss3_spi_transfer(self, 1, &cmd, NULL);
-	eoss3_spi_transfer(self, addr_len, addr_buf, NULL);
-	eoss3_spi_transfer(self, len, src, NULL);
-	eoss3_spi_cs(0);
+	eoss3_spi_transfer(self, cmd_buf, sizeof(cmd_buf), NULL, 0);
 }
 
 static uint32_t eoss3_read_cmd(void *self, uint8_t cmd, size_t len)
 {
 	uint32_t buf;
 
-	eoss3_spi_cs(1);
-	eoss3_spi_transfer(self, 1, &cmd, NULL);
-	eoss3_spi_transfer(self, len, NULL, (uint8_t*) &buf);
-	eoss3_spi_cs(0);
+	eoss3_spi_transfer(self, &cmd, 1, (uint8_t*) &buf, len);
 	return buf;
 }
 
 static void eoss3_read_cmd_qaddr_qdata(void *self, uint8_t cmd, uint32_t addr, size_t len, uint8_t *dest)
 {
-	uint8_t addr_buf[4];
-	size_t addr_len = mp_spi_set_addr_buff(addr_buf, addr);
-
-	printf("%s: cmd=%02x addr=%08x\n", __func__, cmd, (int) addr);
-
 	// remap quad read to single read
 	if (cmd == 0xEB)
 		cmd = 0x03;
 
-	eoss3_spi_cs(1);
-	eoss3_spi_transfer(self, 1, &cmd, NULL);
-	eoss3_spi_transfer(self, addr_len, addr_buf, NULL);
-	eoss3_spi_transfer(self, len, NULL, dest);
-	eoss3_spi_cs(0);
+	//uint8_t addr_buf[4];
+	//size_t addr_len = mp_spi_set_addr_buff(addr_buf, addr);
+	uint8_t cmd_buf[4] = {
+		cmd,
+		(addr >> 16) & 0xFF,
+		(addr >>  8) & 0xFF,
+		(addr >>  0) & 0xFF,
+	};
+
+	eoss3_spi_transfer(self, cmd_buf, sizeof(cmd_buf), dest, len);
 }
 
 static const mp_qspi_proto_t __attribute__((used)) eoss3_qspi_protocol = {
@@ -276,13 +241,15 @@ static const mp_qspi_proto_t __attribute__((used)) eoss3_qspi_protocol = {
 	.read_cmd_qaddr_qdata	= eoss3_read_cmd_qaddr_qdata,
 };
 
+#if 0
 static const mp_spi_proto_t eoss3_spi_protocol = {
 	.ioctl			= eoss3_spi_ioctl,
 	.transfer		= eoss3_spi_transfer,
 };
+#endif
 
 static const mp_spiflash_config_t eoss3_spiflash_config = {
-#if 0
+#if 1
 	.bus_kind	= MP_SPIFLASH_BUS_QSPI,
 	.bus.u_qspi	= {
 		.data		= NULL, // unused

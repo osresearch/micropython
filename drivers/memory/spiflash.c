@@ -147,7 +147,10 @@ STATIC int mp_spiflash_wait_sr(mp_spiflash_t *self, uint8_t mask, uint8_t val, u
 }
 
 STATIC int mp_spiflash_wait_wel1(mp_spiflash_t *self) {
-    return mp_spiflash_wait_sr(self, 2, 2, WAIT_SR_TIMEOUT);
+    // hack: always return success
+    //return mp_spiflash_wait_sr(self, 2, 2, WAIT_SR_TIMEOUT);
+    mp_spiflash_wait_sr(self, 2, 2, 1);
+    return 0;
 }
 
 STATIC int mp_spiflash_wait_wip0(mp_spiflash_t *self) {
@@ -174,14 +177,16 @@ void mp_spiflash_init(mp_spiflash_t *self) {
     // Ensure SPI flash is out of sleep mode
     mp_spiflash_deepsleep_internal(self, 0);
 
+    const uint32_t devid = mp_spiflash_read_cmd(self, CMD_RD_DEVID, 3);
+    printf("%s: rdid %06x\n", __func__, (int) devid);
     #if defined(CHECK_DEVID)
     // Validate device id
-    uint32_t devid = mp_spiflash_read_cmd(self, CMD_RD_DEVID, 3);
     if (devid != CHECK_DEVID) {
         return 0;
     }
     #endif
 
+#if 0
     if (self->config->bus_kind == MP_SPIFLASH_BUS_QSPI) {
         // Set QE bit
         uint32_t data = (mp_spiflash_read_cmd(self, CMD_RDSR, 1) & 0xff)
@@ -193,6 +198,7 @@ void mp_spiflash_init(mp_spiflash_t *self) {
             mp_spiflash_wait_wip0(self);
         }
     }
+#endif
 
     mp_spiflash_release_bus(self);
 }

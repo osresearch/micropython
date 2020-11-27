@@ -35,24 +35,11 @@
 
 #if MICROPY_PY_MACHINE_SPIFLASH
 
-static void
-eoss3_spi_cs(int sel)
-{
-	printf("%s: %d\n", __func__, sel);
-	if (sel)
-	{
-		SPI_MS->SER = 1 << 0;
-		SPI_MS->SSIENR = SSIENR_SSI_EN;
-	} else {
-		SPI_MS->SER = 0;
-		SPI_MS->SSIENR = 0;
-	}
-}
 
 void mp_hal_pin_write(mp_hal_pin_obj_t x, int value)
 {
 	// hack to hook the pin writing for the cs pin
-	eoss3_spi_cs(!value);
+	//eoss3_spi_cs(!value);
 }
 
 static int
@@ -66,13 +53,13 @@ eoss3_spi_ioctl(
 	case MP_QSPI_IOCTL_INIT:
 		// enable the SPI hardware, leaving everything else
 		// to the default settings.
-		printf("%s: init %08x %08x %08x\n", __func__,
+		if(0) printf("%s: init %08x %08x %08x\n", __func__,
 			(int) SPI_MS->CTRLR0,
 			(int) SPI_MS->CTRLR1,
 			(int) SPI_MS->IMR
 		);
 		SPI_MS->SSIENR = 0;
-		SPI_MS->BAUDR = 2; // default? who knows.
+		SPI_MS->BAUDR = 32; // default? who knows.
 		SPI_MS->CTRLR0 = CTRLR0_TMOD_EEPROM | CTRLR0_DFS_8_BIT;
 		SPI_MS->CTRLR1 = 0; // byte at a time
 		SPI_MS->IMR = 0;
@@ -128,7 +115,7 @@ eoss3_spi_transfer(
 	{
 		const size_t dma_len = ((rx_len + 3) / 4) * 4 - 1;
 		SPI_MS->CTRLR1 = dma_len;
-		SPI_MS->IMR = ISR_RXFIM_ACTIVE;
+		SPI_MS->IMR |= ISR_RXFIM_ACTIVE;
 		DMA_SPI_MS->DMA_DEST_ADDR = (uint32_t) rx;
 		DMA_SPI_MS->DMA_XFER_CNT = dma_len;
 		DMA_SPI_MS->DMA_INTR_MASK = DMA_RX_DATA_AVAIL_INTR_MSK;
@@ -152,6 +139,7 @@ eoss3_spi_transfer(
 
 	// select the output, which starts draining the FIFO and the DMA?
 	SPI_MS->SER = SER_SS_0_N_SELECTED;
+	SPI_MS->IMR |= ISR_TXEIM_ACTIVE;
 
 	// wait for TxFifo empty and not busy
 	// which means that the DMA is over.
@@ -166,32 +154,25 @@ eoss3_spi_transfer(
 	DMA_SPI_MS->DMA_CTRL = DMA_CTRL_STOP_BIT;
 }
 
+static uint32_t eoss3_read_cmd(void *self, uint8_t cmd, size_t len);
+
 static void eoss3_write_cmd_data(void *self, uint8_t cmd, size_t len, uint32_t data)
 {
-	uint8_t data_buf[5] = { cmd };
-	switch(len)
-	{
-	case 1:
-		data_buf[1] = (data >> 0) & 0xFF;
-		break;
-	case 2:
-		data_buf[1] = (data >> 8) & 0xFF;
-		data_buf[2] = (data >> 0) & 0xFF;
-		break;
-	case 3:
-		data_buf[1] = (data >> 16) & 0xFF;
-		data_buf[2] = (data >>  8) & 0xFF;
-		data_buf[3] = (data >>  0) & 0xFF;
-		break;
-	case 4:
-		data_buf[1] = (data >> 24) & 0xFF;
-		data_buf[2] = (data >> 16) & 0xFF;
-		data_buf[3] = (data >>  8) & 0xFF;
-		data_buf[4] = (data >>  0) & 0xFF;
-		break;
-	}
-		
+#if 1
+	data <<= 8 * (4 - len);
+	uint8_t data_buf[5] = {
+		cmd,
+		(data >> 24) & 0xFF,
+		(data >> 16) & 0xFF,
+		(data >>  8) & 0xFF,
+		(data >>  0) & 0xFF,
+	};
+
+	printf("%s: cmd=%02x data=%08x len=%d\n", __func__, (int) cmd, (int) data, (int) len);
 	eoss3_spi_transfer(self, data_buf, 1 + len, NULL, 0);
+#else
+	eoss3_read_cmd(self, cmd, 0);
+#endif
 }
 
 static void eoss3_write_cmd_addr_data(void *self, uint8_t cmd, uint32_t addr, size_t len, const uint8_t *src)
@@ -204,15 +185,33 @@ static void eoss3_write_cmd_addr_data(void *self, uint8_t cmd, uint32_t addr, si
 
 	memcpy(cmd_buf + 4, src, len);
 
+	printf("%s: cmd=%02x addr=%06x len=%d\n", __func__, (int) cmd, (int) addr, (int) len);
 	eoss3_spi_transfer(self, cmd_buf, sizeof(cmd_buf), NULL, 0);
 }
 
 static uint32_t eoss3_read_cmd(void *self, uint8_t cmd, size_t len)
 {
-	uint32_t buf;
+	uint8_t buf[4];
 
-	eoss3_spi_transfer(self, &cmd, 1, (uint8_t*) &buf, len);
-	return buf;
+	eoss3_spi_transfer(self, &cmd, 1, buf, len);
+
+	printf("%s: cmd=%02x buf=[%02x %02x %02x %02x]\n",
+		__func__, cmd,
+		(int) buf[0],
+		(int) buf[1],
+		(int) buf[2],
+		(int) buf[3]
+	);
+
+	if (len == 1)
+		return buf[0] << 0;
+	if (len == 2)
+		return buf[1] << 8 | buf[0] << 0;
+	if (len == 3)
+		return buf[2] << 16 | buf[1] << 8 | buf[0] << 0;
+	if (len == 4)
+		return buf[3] << 24 | buf[2] << 16 | buf[1] << 8 | buf[0] << 0;
+	return buf[0];
 }
 
 static void eoss3_read_cmd_qaddr_qdata(void *self, uint8_t cmd, uint32_t addr, size_t len, uint8_t *dest)
@@ -241,27 +240,13 @@ static const mp_qspi_proto_t __attribute__((used)) eoss3_qspi_protocol = {
 	.read_cmd_qaddr_qdata	= eoss3_read_cmd_qaddr_qdata,
 };
 
-#if 0
-static const mp_spi_proto_t eoss3_spi_protocol = {
-	.ioctl			= eoss3_spi_ioctl,
-	.transfer		= eoss3_spi_transfer,
-};
-#endif
 
 static const mp_spiflash_config_t eoss3_spiflash_config = {
-#if 1
 	.bus_kind	= MP_SPIFLASH_BUS_QSPI,
 	.bus.u_qspi	= {
 		.data		= NULL, // unused
 		.proto		= &eoss3_qspi_protocol,
 	},
-#else
-	.bus_kind	= MP_SPIFLASH_BUS_SPI,
-	.bus.u_spi	= {
-		.data		= NULL, // unused
-		.proto		= &eoss3_spi_protocol,
-	},
-#endif
 	.cache		= NULL,
 };
 
@@ -331,47 +316,11 @@ STATIC mp_obj_t mp_machine_spiflash_erase(mp_obj_t self_obj, mp_obj_t addr_obj)
 }
 MP_DEFINE_CONST_FUN_OBJ_2(mp_machine_spiflash_erase_obj, mp_machine_spiflash_erase);
 
-#if 0
-STATIC mp_obj_t mp_machine_spi_readinto(size_t n_args, const mp_obj_t *args) {
-    mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_WRITE);
-    memset(bufinfo.buf, n_args == 3 ? mp_obj_get_int(args[2]) : 0, bufinfo.len);
-    mp_machine_spi_transfer(args[0], bufinfo.len, bufinfo.buf, bufinfo.buf);
-    return mp_const_none;
-}
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_machine_spi_readinto_obj, 2, 3, mp_machine_spi_readinto);
-
-STATIC mp_obj_t mp_machine_spi_write(mp_obj_t self, mp_obj_t wr_buf) {
-    mp_buffer_info_t src;
-    mp_get_buffer_raise(wr_buf, &src, MP_BUFFER_READ);
-    mp_machine_spi_transfer(self, src.len, (const uint8_t*)src.buf, NULL);
-    return mp_const_none;
-}
-MP_DEFINE_CONST_FUN_OBJ_2(mp_machine_spi_write_obj, mp_machine_spi_write);
-
-STATIC mp_obj_t mp_machine_spi_write_readinto(mp_obj_t self, mp_obj_t wr_buf, mp_obj_t rd_buf) {
-    mp_buffer_info_t src;
-    mp_get_buffer_raise(wr_buf, &src, MP_BUFFER_READ);
-    mp_buffer_info_t dest;
-    mp_get_buffer_raise(rd_buf, &dest, MP_BUFFER_WRITE);
-    if (src.len != dest.len) {
-        mp_raise_ValueError("buffers must be the same length");
-    }
-    mp_machine_spi_transfer(self, src.len, src.buf, dest.buf);
-    return mp_const_none;
-}
-MP_DEFINE_CONST_FUN_OBJ_3(mp_machine_spi_write_readinto_obj, mp_machine_spi_write_readinto);
-#endif
 
 STATIC const mp_rom_map_elem_t machine_spiflash_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&mp_machine_spiflash_read_obj) },
     { MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&mp_machine_spiflash_write_obj) },
     { MP_ROM_QSTR(MP_QSTR_erase), MP_ROM_PTR(&mp_machine_spiflash_erase_obj) },
-/*
-    { MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&mp_machine_spi_readinto_obj) },
-    { MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&mp_machine_spi_write_obj) },
-    { MP_ROM_QSTR(MP_QSTR_write_readinto), MP_ROM_PTR(&mp_machine_spi_write_readinto_obj) },
-*/
 };
 
 MP_DEFINE_CONST_DICT(mp_machine_spiflash_locals_dict, machine_spiflash_locals_dict_table);

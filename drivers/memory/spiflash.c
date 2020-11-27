@@ -147,10 +147,7 @@ STATIC int mp_spiflash_wait_sr(mp_spiflash_t *self, uint8_t mask, uint8_t val, u
 }
 
 STATIC int mp_spiflash_wait_wel1(mp_spiflash_t *self) {
-    // hack: always return success
-    //return mp_spiflash_wait_sr(self, 2, 2, WAIT_SR_TIMEOUT);
-    mp_spiflash_wait_sr(self, 2, 2, 1);
-    return 0;
+    return mp_spiflash_wait_sr(self, 2, 2, WAIT_SR_TIMEOUT);
 }
 
 STATIC int mp_spiflash_wait_wip0(mp_spiflash_t *self) {

@@ -114,6 +114,7 @@ eoss3_spi_transfer(
 	if (rx_len)
 	{
 		const size_t dma_len = ((rx_len + 3) / 4) * 4 - 1;
+		SPI_MS->CTRLR0 = CTRLR0_TMOD_EEPROM | CTRLR0_DFS_8_BIT;
 		SPI_MS->CTRLR1 = dma_len;
 		SPI_MS->IMR |= ISR_RXFIM_ACTIVE;
 		DMA_SPI_MS->DMA_DEST_ADDR = (uint32_t) rx;
@@ -121,7 +122,8 @@ eoss3_spi_transfer(
 		DMA_SPI_MS->DMA_INTR_MASK = DMA_RX_DATA_AVAIL_INTR_MSK;
 		DMA_SPI_MS->DMA_CTRL = DMA_CTRL_START_BIT;
 	} else {
-		// no DMA
+		// no DMA, turn of RX path
+		SPI_MS->CTRLR0 = CTRLR0_TMOD_TX | CTRLR0_DFS_8_BIT;
 		SPI_MS->CTRLR1 = 0;
 		SPI_MS->IMR = 0;
 		DMA_SPI_MS->DMA_INTR_MASK = 0;
@@ -139,7 +141,7 @@ eoss3_spi_transfer(
 
 	// select the output, which starts draining the FIFO and the DMA?
 	SPI_MS->SER = SER_SS_0_N_SELECTED;
-	SPI_MS->IMR |= ISR_TXEIM_ACTIVE;
+	//SPI_MS->IMR |= ISR_TXEIM_ACTIVE;
 
 	// wait for TxFifo empty and not busy
 	// which means that the DMA is over.
@@ -154,11 +156,8 @@ eoss3_spi_transfer(
 	DMA_SPI_MS->DMA_CTRL = DMA_CTRL_STOP_BIT;
 }
 
-static uint32_t eoss3_read_cmd(void *self, uint8_t cmd, size_t len);
-
 static void eoss3_write_cmd_data(void *self, uint8_t cmd, size_t len, uint32_t data)
 {
-#if 1
 	data <<= 8 * (4 - len);
 	uint8_t data_buf[5] = {
 		cmd,
@@ -170,9 +169,6 @@ static void eoss3_write_cmd_data(void *self, uint8_t cmd, size_t len, uint32_t d
 
 	printf("%s: cmd=%02x data=%08x len=%d\n", __func__, (int) cmd, (int) data, (int) len);
 	eoss3_spi_transfer(self, data_buf, 1 + len, NULL, 0);
-#else
-	eoss3_read_cmd(self, cmd, 0);
-#endif
 }
 
 static void eoss3_write_cmd_addr_data(void *self, uint8_t cmd, uint32_t addr, size_t len, const uint8_t *src)
@@ -195,6 +191,8 @@ static uint32_t eoss3_read_cmd(void *self, uint8_t cmd, size_t len)
 
 	eoss3_spi_transfer(self, &cmd, 1, buf, len);
 
+	// don't print the nearly constant RDSR messages
+	if (cmd != 0x05)
 	printf("%s: cmd=%02x buf=[%02x %02x %02x %02x]\n",
 		__func__, cmd,
 		(int) buf[0],

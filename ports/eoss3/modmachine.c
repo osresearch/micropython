@@ -38,7 +38,6 @@
 #include "extmod/machine_mem.h"
 //#include "extmod/machine_pin.h"
 //#include "extmod/machine_pwm.h"
-#include "extmod/machine_spi.h"
 #include "machine_spiflash.h"
 
 #include "Fw_global_config.h"
@@ -136,7 +135,6 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_mem16),               MP_ROM_PTR(&machine_mem16_obj) },
     { MP_ROM_QSTR(MP_QSTR_mem32),               MP_ROM_PTR(&machine_mem32_obj) },
 
-    { MP_ROM_QSTR(MP_QSTR_SPI),                 MP_ROM_PTR(&mp_machine_eoss3_spi_type) },
     { MP_ROM_QSTR(MP_QSTR_SPIFlash),            MP_ROM_PTR(&mp_machine_spiflash_type) },
 
 #if 0

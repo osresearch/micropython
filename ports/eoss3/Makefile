@@ -43,14 +43,17 @@ CFLAGS += -Os -DNDEBUG
 CFLAGS += -fdata-sections -ffunction-sections
 endif
 
+CFLAGS += -DLFS2_NO_MALLOC -DLFS2_NO_DEBUG -DLFS2_NO_WARN -DLFS2_NO_ERROR -DLFS2_NO_ASSERT
+
 LIBS =
+#LIBS += /usr/lib/arm-none-eabi/newlib/thumb/v7e-m/fpv4-sp/softfp/libm.a
+LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/v7e-m/fpv4-sp/softfp/libgcc.a
 
 SRC_C = \
 	main.c \
 	moduos.c \
 	modmachine.c \
 	uart_core.c \
-	machine_spi.c \
 	machine_spiflash.c \
 
 PYLIB_SRC_C = \
@@ -64,7 +67,6 @@ PYLIB_SRC_C = \
 PYMOD_SRC_C = \
 	extmod/modubinascii.c \
 	extmod/machine_mem.c \
-	extmod/machine_spi.c \
 	drivers/memory/spiflash.c \
 	\
 	extmod/vfs.c \
@@ -75,6 +77,7 @@ PYMOD_SRC_C = \
 	lib/littlefs/lfs2_util.c \
 
 NOT_YET = \
+	extmod/machine_spi.c \
 	extmod/utime_mphal.c \
 
 SRC_QSTR += $(SRC_C)
@@ -87,13 +90,19 @@ OBJ = \
 	$(addprefix $(BUILD)/, $(PYLIB_SRC_C:.c=.o)) \
 	$(addprefix $(BUILD)/, $(PYMOD_SRC_C:.c=.o)) \
 	$(addprefix $(BUILD)/, $(LIB_SRC_C:.c=.o)) \
-	$(BUILD)/_frozen_mpy.o
+	$(BUILD)/frozen_mpy.o
 
 all: $(BUILD)/firmware.bin
 
-$(BUILD)/_frozen_mpy.c: frozentest.mpy $(BUILD)/genhdr/qstrdefs.generated.h
-	$(ECHO) "MISC freezing bytecode"
-	$(Q)$(TOP)/tools/mpy-tool.py -f -q $(BUILD)/genhdr/qstrdefs.preprocessed.h -mlongint-impl=none $< > $@
+# Override the default args to mpy-tool so that the frozen modules
+# will have the correct configuration. All the .py files in modules/
+# are linked into the firmware.
+MPY_TOOL_BIN = $(TOP)/tools/mpy-tool.py
+MPY_TOOL = $(PYTHON) $(MPY_TOOL_BIN) -mlongint-impl=none
+FROZEN_MPY_DIR = modules
+
+mpy-cross: $(MPY_TOOL_BIN)
+	$(MAKE) -C ../../mpy-cross
 
 $(BUILD)/firmware.elf: $(OBJ)
 	$(ECHO) "LINK $@"

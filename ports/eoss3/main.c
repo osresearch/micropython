@@ -50,6 +50,9 @@ int main(int argc, char **argv) {
         }
     }
     #else
+    // run boot-up scripts
+    pyexec_frozen_module("__init__.py");
+    pyexec_file_if_exists("boot.py");
     pyexec_friendly_repl();
     #endif
     // do_str("print('hello world!', list(x+1 for x in range(10)), end='eol\\n')", MP_PARSE_SINGLE_INPUT);

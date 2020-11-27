@@ -12,6 +12,5 @@ jobs:
     - name: Upload eoss3
       uses: actions/upload-artifact@v2
       with:
-        path: |
-          bin: ports/eoss3/build/firmware.bin
-          elf: ports/eoss3/build/firmware.elf
+        name: eoss3-firmware
+        path: ports/eoss3/build/firmware.*

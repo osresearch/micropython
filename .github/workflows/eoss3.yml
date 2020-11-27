@@ -1,0 +1,17 @@
+name: eoss3-build
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: cross-compiler
+      run:  sudo apt install gcc-arm-none-eabi
+    - name: Build eoss3
+      run: make -C ports/eoss3
+    - name: Upload eoss3
+      uses: actions/upload-artifact@v2
+      with:
+        path: |
+          bin: ports/eoss3/build/firmware.bin
+          elf: ports/eoss3/build/firmware.elf

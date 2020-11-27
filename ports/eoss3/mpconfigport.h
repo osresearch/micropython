@@ -8,6 +8,7 @@
 #define MICROPY_ENABLE_COMPILER     (1)
 #define MICROPY_EMIT_THUMB          (1)
 #define MICROPY_MODULE_WEAK_LINKS   (1)
+#define MICROPY_LONGINT_IMPL        (MICROPY_LONGINT_IMPL_MPZ)
 
 #define MICROPY_QSTR_BYTES_IN_HASH  (1)
 #define MICROPY_QSTR_EXTRA_POOL     mp_qstr_frozen_const_pool
@@ -18,6 +19,7 @@
 #define MICROPY_ENABLE_GC           (1)
 #define MICROPY_GC_ALLOC_THRESHOLD  (0)
 #define MICROPY_HELPER_REPL         (1)
+#define MICROPY_ENABLE_SOURCE_LINE  (1)
 #define MICROPY_ERROR_REPORTING     (MICROPY_ERROR_REPORTING_TERSE)
 #define MICROPY_BUILTIN_METHOD_CHECK_SELF_ARG (0)
 #define MICROPY_PY_ASYNC_AWAIT      (1)
@@ -44,17 +46,45 @@
 #define MICROPY_PY_SYS              (1)
 #define MICROPY_PY_UBINASCII        (1)
 #define MICROPY_PY_MACHINE          (1)
-#define MICROPY_PY_MACHINE_SPI      (1)
-#define MICROPY_PY_MACHINE_SPIFLASH (1)
 #define MICROPY_PY_MATH             (1)
 #define MICROPY_MODULE_FROZEN_MPY   (1)
 #define MICROPY_CPYTHON_COMPAT      (0)
 #define MICROPY_MODULE_GETATTR      (0)
-#define MICROPY_STREAMS_NON_BLOCK   (1)
-#define MICROPY_STREAMS_POSIX_API   (1)
+#define MICROPY_STREAMS_NON_BLOCK   (0)
+#define MICROPY_STREAMS_POSIX_API   (0)
 #define MICROPY_ENABLE_SCHEDULER    (1)
 #define MICROPY_KBD_EXCEPTION       (1)
 
+// Allow VFS access to the flash chip
+#define MICROPY_PY_MACHINE_SPIFLASH (1)
+#define MICROPY_READER_VFS          (MICROPY_VFS)
+#define MICROPY_VFS                 (1)
+#define MICROPY_VFS_FAT             (0)
+#define MICROPY_VFS_LFS1            (0)
+#define MICROPY_VFS_LFS2            (1)
+
+#if MICROPY_VFS_FAT
+#define MICROPY_FATFS_ENABLE_LFN       (1)
+#define MICROPY_FATFS_RPATH            (2)
+//#define MICROPY_FATFS_MIN_SS           (4096)
+#define MICROPY_FATFS_MAX_SS           (4096)
+#define MICROPY_FATFS_NORTC            (1)
+#define MICROPY_FATFS_LFN_CODE_PAGE    437 /* 1=SFN/ANSI 437=LFN/U.S.(OEM) */
+#define mp_type_fileio mp_type_vfs_fat_fileio
+#define mp_type_textio mp_type_vfs_fat_textio
+#elif MICROPY_VFS_LFS1
+#define mp_type_fileio mp_type_vfs_lfs1_fileio
+#define mp_type_textio mp_type_vfs_lfs1_textio
+#elif MICROPY_VFS_LFS2
+#define mp_type_fileio mp_type_vfs_lfs2_fileio
+#define mp_type_textio mp_type_vfs_lfs2_textio
+#endif
+
+
+// use vfs's functions for import stat and builtin open
+#define mp_import_stat mp_vfs_import_stat
+#define mp_builtin_open mp_vfs_open
+#define mp_builtin_open_obj mp_vfs_open_obj
 // type definitions for the specific machine
 
 typedef intptr_t mp_int_t; // must be pointer size

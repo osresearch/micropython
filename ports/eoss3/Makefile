@@ -98,7 +98,7 @@ all: $(BUILD)/firmware.bin
 # will have the correct configuration. All the .py files in modules/
 # are linked into the firmware.
 MPY_TOOL_BIN = $(TOP)/tools/mpy-tool.py
-MPY_TOOL = $(PYTHON) $(MPY_TOOL_BIN) -mlongint-impl=none
+MPY_TOOL = $(PYTHON) $(MPY_TOOL_BIN) -mlongint-impl=mpz
 FROZEN_MPY_DIR = modules
 
 mpy-cross: $(MPY_TOOL_BIN)

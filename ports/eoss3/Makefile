@@ -54,6 +54,7 @@ SRC_C = \
 	modmachine.c \
 	uart_core.c \
 	machine_spiflash.c \
+	machine_pin.c \
 
 PYLIB_SRC_C = \
 	lib/utils/printf.c \

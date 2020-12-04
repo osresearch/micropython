@@ -46,8 +46,7 @@ endif
 CFLAGS += -DLFS2_NO_MALLOC -DLFS2_NO_DEBUG -DLFS2_NO_WARN -DLFS2_NO_ERROR -DLFS2_NO_ASSERT
 
 LIBS =
-#LIBS += /usr/lib/arm-none-eabi/newlib/thumb/v7e-m/fpv4-sp/softfp/libm.a
-LIBS += /usr/lib/gcc/arm-none-eabi/6.3.1/thumb/v7e-m/fpv4-sp/softfp/libgcc.a
+LIBS += $(shell $(CC) $(CFLAGS) -print-libgcc-file-name)
 
 SRC_C = \
 	main.c \
@@ -55,6 +54,7 @@ SRC_C = \
 	modmachine.c \
 	uart_core.c \
 	machine_spiflash.c \
+	machine_pin.c \
 
 PYLIB_SRC_C = \
 	lib/utils/printf.c \

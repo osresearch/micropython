@@ -1436,10 +1436,9 @@ typedef struct
  ******************************************************************************/
 
 /* Common bit definition for all PAD control registers */
-/*
-#define PAD_CTRL_SEL_AO_REG			((uint32_t) (0x00000000))
-#define PAD_CTRL_SEL_OTHER			((uint32_t) (0x00000008))
-#define PAD_CTRL_SEL_FPGA			((uint32_t) (0x00000010))
+#define PAD_CTRL_SEL_AO_REG                         ((uint32_t) (0x00000000))
+#define PAD_CTRL_SEL_OTHER                          ((uint32_t) (0x00000008))
+#define PAD_CTRL_SEL_FPGA                           ((uint32_t) (0x00000010))
 #define PAD_OEN_DISABLE                             ((uint32_t) (0x00000020))
 #define PAD_OEN_NORMAL                              ((uint32_t) (0x00000000))
 #define PAD_P_Z                                     ((uint32_t) (0x00000000))
@@ -1456,10 +1455,7 @@ typedef struct
 #define PAD_REN_DISABLE                             ((uint32_t) (0x00000000))
 #define PAD_SMT_ENABLE                              ((uint32_t) (0x00001000))
 #define PAD_SMT_DISABLE                             ((uint32_t) (0x00000000))
-*/
 
-#define PAD_E_12MA                                  ((uint32_t) (0x00000300))
-#define PAD_OEN_NORMAL                              ((uint32_t) (0x00000000))
 
 #define SDA0_SEL_PAD1                               ((uint32_t) (0x00000001))
 #define SDA1_SEL_PAD10                              ((uint32_t) (0x00000001))

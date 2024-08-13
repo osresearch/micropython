@@ -47,7 +47,7 @@ extern const mp_obj_type_t samd_spiflash_type;
 
 static mp_obj_t samd_pininfo(mp_obj_t pin_obj) {
     const machine_pin_obj_t *pin_af = pin_find(pin_obj);
-    #if defined(MCU_SAMD21)
+    #if defined(MCU_SAMD21) || defined(MCU_SAML22)
     mp_obj_t tuple[7] = {
         tuple[0] = MP_OBJ_NEW_QSTR(pin_af->name),
         tuple[1] = mp_obj_new_int(pin_af->eic),

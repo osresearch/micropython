@@ -47,6 +47,17 @@ static void usb_init(void) {
     PM->AHBMASK.bit.USB_ = 1;
     PM->APBBMASK.bit.USB_ = 1;
     uint8_t alt = 6; // alt G, USB
+    #elif defined(MCU_SAML22)
+// todo: look at Sensor-Watch/watch-library/hardware/watch/watch_private.c
+// for clock setup and pins, etc
+#if 0
+    GCLK->PCHCTRL[USB_GCLK_ID].reg = GCLK_PCHCTRL_CHEN | GCLK_PCHCTRL_GEN_GCLK4;
+    while (GCLK->PCHCTRL[USB_GCLK_ID].bit.CHEN == 0) {
+    }
+    MCLK->AHBMASK.bit.USB_ = 1;
+    MCLK->APBBMASK.bit.USB_ = 1;
+#endif
+    uint8_t alt = 6; // alt G, USB
     #elif defined(MCU_SAMD51)
     GCLK->PCHCTRL[USB_GCLK_ID].reg = GCLK_PCHCTRL_CHEN | GCLK_PCHCTRL_GEN_GCLK5;
     while (GCLK->PCHCTRL[USB_GCLK_ID].bit.CHEN == 0) {
@@ -64,7 +75,12 @@ static void usb_init(void) {
     PORT->Group[0].PINCFG[25].reg = PORT_PINCFG_PMUXEN;
 }
 
-// Initialize the µs counter on TC 0/1 or TC4/5
+/*
+ * Initialize the 32-bit µs counter using pair of 16-bit counters
+ * SAMD51: TC 0/1
+ * SAMD21: TC 3/4
+ * SAML22: TC 0/1 (TC4 does not support 32-bit, 34.6.2.4 Counter mode)
+ */
 void init_us_counter(void) {
     #if defined(MCU_SAMD21)
 
@@ -89,7 +105,26 @@ void init_us_counter(void) {
     TC4->COUNT32.INTENSET.reg = TC_INTENSET_OVF;
     NVIC_EnableIRQ(TC4_IRQn);
 
-    #elif defined(MCU_SAMD51)
+    #elif defined(MCU_SAML22)
+    MCLK->APBCMASK.bit.TC0_ = 1; // Enable TC0 clock
+    MCLK->APBCMASK.bit.TC1_ = 1; // Enable TC1 clock
+    // Peripheral channel 9 is driven by GCLK3, 8 MHz.
+    GCLK->PCHCTRL[TC0_GCLK_ID].reg = GCLK_PCHCTRL_GEN_GCLK3 | GCLK_PCHCTRL_CHEN;
+    while (GCLK->PCHCTRL[TC0_GCLK_ID].bit.CHEN == 0) {
+    }
+
+    // configure the timer
+    TC0->COUNT32.CTRLA.bit.PRESCALER = 0;
+    TC0->COUNT32.CTRLA.bit.MODE = TC_CTRLA_MODE_COUNT32_Val;
+    TC0->COUNT32.CTRLA.bit.RUNSTDBY = 1;
+    TC0->COUNT32.CTRLA.bit.ENABLE = 1;
+    while (TC0->COUNT32.SYNCBUSY.bit.ENABLE) {
+    }
+
+    // Enable the IRQ
+    TC0->COUNT32.INTENSET.reg = TC_INTENSET_OVF;
+    NVIC_EnableIRQ(TC0_IRQn);
+     #elif defined(MCU_SAMD51)
 
     MCLK->APBAMASK.bit.TC0_ = 1; // Enable TC0 clock
     MCLK->APBAMASK.bit.TC1_ = 1; // Enable TC1 clock
@@ -150,8 +185,10 @@ void sercom_deinit_all(void) {
 void samd_get_unique_id(samd_unique_id_t *id) {
     // Atmel SAM D21E / SAM D21G / SAM D21J
     // SMART ARM-Based Microcontroller
-    // DATASHEET
-    // 9.6 (SAMD51) or 9.3.3 (or 10.3.3 depending on which manual)(SAMD21) Serial Number
+    // "Serial number" DATASHEET section
+    // SAMD51: 9.6
+    // SAMD21: 9.3.3 (or 10.3.3 depending on which manual)
+    // SAML22: 9.5 (DS60001465D)
     //
     // EXAMPLE (SAMD21)
     // ----------------
@@ -167,7 +204,7 @@ void samd_get_unique_id(samd_unique_id_t *id) {
     // >>> binascii.hexlify(machine.unique_id())
     // b'6e27f15f50534b54332e3120ff091645'
 
-    #if defined(MCU_SAMD21)
+    #if defined(MCU_SAMD21) || defined(MCU_SAML22)
     uint32_t *id_addresses[4] = {(uint32_t *)0x0080A00C, (uint32_t *)0x0080A040,
                                  (uint32_t *)0x0080A044, (uint32_t *)0x0080A048};
     #elif defined(MCU_SAMD51)

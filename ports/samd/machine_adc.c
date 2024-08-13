@@ -44,7 +44,7 @@ typedef struct _machine_adc_obj_t {
 #define DEFAULT_ADC_BITS    12
 #define DEFAULT_ADC_AVG     16
 
-#if defined(MCU_SAMD21)
+#if defined(MCU_SAMD21) || defined(MCU_SAML22)
 static uint8_t adc_vref_table[] = {
     ADC_REFCTRL_REFSEL_INT1V_Val, ADC_REFCTRL_REFSEL_INTVCC0_Val,
     ADC_REFCTRL_REFSEL_INTVCC1_Val, ADC_REFCTRL_REFSEL_AREFA_Val, ADC_REFCTRL_REFSEL_AREFB_Val
@@ -173,7 +173,7 @@ static void adc_init(machine_adc_obj_t *self) {
 
         init_flags[self->adc_config.device] = true;
 
-        #if defined(MCU_SAMD21)
+        #if defined(MCU_SAMD21) || defined(MCU_SAML22)
         // Configuration SAMD21
         // Enable APBD clocks and PCHCTRL clocks; GCLK2 at 48 MHz
         PM->APBCMASK.reg |= PM_APBCMASK_ADC;

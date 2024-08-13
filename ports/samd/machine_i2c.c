@@ -195,7 +195,7 @@ mp_obj_t machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, size_t n
 
     // Enable interrupts
     sercom_register_irq(self->id, &common_i2c_irq_handler);
-    #if defined(MCU_SAMD21)
+    #if defined(MCU_SAMD21) || defined(MCU_SAML22)
     NVIC_EnableIRQ(SERCOM0_IRQn + self->id);
     #elif defined(MCU_SAMD51)
     NVIC_EnableIRQ(SERCOM0_0_IRQn + 4 * self->id); // MB interrupt

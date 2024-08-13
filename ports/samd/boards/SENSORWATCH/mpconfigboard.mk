@@ -1,0 +1,4 @@
+MCU_SERIES = SAML22
+CMSIS_MCU = SAML22J18A
+LD_FILES = boards/saml22j18.ld sections.ld
+TEXT0 = 0x2000

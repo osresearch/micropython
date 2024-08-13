@@ -1,7 +1,7 @@
 Port of MicroPython to Microchip SAMD MCUs
 ==========================================
 
-Supports SAMD21 and SAMD51. For each supported device there is a
+Supports SAMD21, SAML22 and SAMD51. For each supported device there is a
 subdirectory in the `boards/` directory.
 
 The entry point for the specific port documentation is at
@@ -9,7 +9,7 @@ https://docs.micropython.org/en/latest/samd/quickref.html, which also
 shows the assignment of IO-Functions to pins. The generic MicroPython
 documentation applies for anything not specific for the SAM port.
 
-Due to the different flash sizes of SAMD21 and SAMD51 devices, the
+Due to the different flash sizes of SAMD21/SAML22 and SAMD51 devices, the
 coverage of MicroPython modules differ. Use help("modules") to tell,
 which MicroPython modules are provided.
 

@@ -39,10 +39,11 @@ extern void SysTick_Handler(void);
 extern void PendSV_Handler(void);
 extern void EIC_Handler(void);
 
-const ISR isr_vector[];
+//const ISR isr_vector[];
+const DeviceVectors isr_vector;
 volatile uint32_t systick_ms;
 volatile uint32_t ticks_us64_upper;
-#if defined(MCU_SAMD21)
+#if defined(MCU_SAMD21) || defined(MCU_SAML22)
 volatile uint32_t rng_state;
 #endif
 
@@ -114,7 +115,7 @@ void us_timer_IRQ(void) {
         ticks_us64_upper++;
     }
     TC4->COUNT32.INTFLAG.reg = TC_INTFLAG_OVF;
-    #elif defined(MCU_SAMD51)
+    #elif defined(MCU_SAMD51) || defined(MCU_SAML22)
     if (TC0->COUNT32.INTFLAG.reg & TC_INTFLAG_OVF) {
         ticks_us64_upper++;
     }
@@ -165,7 +166,7 @@ void Sercom7_Handler(void) {
 #endif
 
 #if defined(MCU_SAMD21)
-const ISR isr_vector[] __attribute__((section(".isr_vector"))) = {
+const DeviceVectors isr_vector __attribute__((section(".isr_vector"))) = {
     (ISR)&_estack,
     &Reset_Handler,
     &Default_Handler,   // NMI_Handler
@@ -212,8 +213,28 @@ const ISR isr_vector[] __attribute__((section(".isr_vector"))) = {
     0,                  // 27 Inter-IC Sound Interface (I2S)
 
 };
-#else
-const ISR isr_vector[] __attribute__((section(".isr_vector"))) = {
+#elif defined(MCU_SAML22)
+const DeviceVectors isr_vector __attribute__((section(".isr_vector"))) = {
+    .pvStack                   = (void *)(&_estack),
+    .pfnReset_Handler          = Reset_Handler,
+    .pfnNonMaskableInt_Handler = Default_Handler,
+    .pfnHardFault_Handler      = Default_Handler,
+    .pfnSVCall_Handler         = Default_Handler,
+    .pfnPendSV_Handler         = PendSV_Handler,
+    .pfnSysTick_Handler        = SysTick_Handler,
+
+    .pfnEIC_Handler            = EIC_Handler,
+    .pfnUSB_Handler            = USB_Handler_wrapper,
+    .pfnSERCOM0_Handler        = Sercom0_Handler,
+    .pfnSERCOM1_Handler        = Sercom1_Handler,
+    .pfnSERCOM2_Handler        = Sercom2_Handler,
+    .pfnSERCOM3_Handler        = Sercom3_Handler,
+    .pfnTC0_Handler            = us_timer_IRQ,
+//  .pfnSLCD_Handler           = SLCD_Handler, // todo
+//  .pfnTRNG_Handler           = TRNG_Handler,
+};
+#elif defined(MCU_SAMD51)
+const DeviceVectors isr_vector __attribute__((section(".isr_vector"))) = {
     (ISR)&_estack,
     &Reset_Handler,
     &Default_Handler, // NMI_Handler
@@ -368,4 +389,6 @@ const ISR isr_vector[] __attribute__((section(".isr_vector"))) = {
     0,                // 135 SD/MMC Host Controller 0 (SDHC0)
     0,                // 136 SD/MMC Host Controller 1 (SDHC1)
 };
+#else
+#error "unknown MCU architecture"
 #endif

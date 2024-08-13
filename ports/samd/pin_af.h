@@ -28,7 +28,7 @@
  *
  */
 
-#if defined(MCU_SAMD21)
+#if defined(MCU_SAMD21) || defined(MCU_SAML22)
 
 typedef struct _machine_pin_obj_t {
     mp_obj_base_t base;

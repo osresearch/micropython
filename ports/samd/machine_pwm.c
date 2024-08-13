@@ -61,7 +61,7 @@ typedef struct _machine_pwm_obj_t {
 
 static Tcc *tcc_instance[] = TCC_INSTS;
 
-#if defined(MCU_SAMD21)
+#if defined(MCU_SAMD21) || defined(MCU_SAML22)
 
 static const int tcc_gclk_id[] = {
     GCLK_CLKCTRL_ID_TCC0_TCC1, GCLK_CLKCTRL_ID_TCC0_TCC1, GCLK_CLKCTRL_ID_TCC2_TC3
@@ -153,7 +153,7 @@ static void mp_machine_pwm_init_helper(machine_pwm_obj_t *self,
     // Initialize the hardware if needed
     if (device_status[device] == PWM_NOT_INIT) {
         // Enable the device clock at first use.
-        #if defined(MCU_SAMD21)
+        #if defined(MCU_SAMD21) || defined(MCU_SAML22)
         // Enable synchronous clock. The bits are nicely arranged
         PM->APBCMASK.reg |= PM_APBCMASK_TCC0 << device;
         // Select multiplexer generic clock source and enable.

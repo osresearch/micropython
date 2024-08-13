@@ -58,7 +58,7 @@ uint32_t trng_random_u32(void) {
 #define TRNG_RANDOM_U32 trng_random_u32()
 #endif // defined(MCU_SAMD51)
 
-#if defined(MCU_SAMD21)
+#if defined(MCU_SAMD21) || defined(MCU_SAML22)
 extern volatile uint32_t rng_state;
 
 uint32_t trng_random_u32(int delay) {

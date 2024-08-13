@@ -74,7 +74,7 @@ static inline mp_uint_t mp_hal_ticks_us(void) {
     return (mp_uint_t)mp_hal_ticks_us_64();
 }
 
-#if defined(MCU_SAMD21)
+#if defined(MCU_SAMD21) || defined(MCU_SAML22)
 
 #define mp_hal_ticks_cpu mp_hal_ticks_us
 

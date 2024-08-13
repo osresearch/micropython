@@ -1,0 +1,18 @@
+{
+    "deploy": [
+        "../deploy.md"
+    ],
+    "docs": "",
+    "features": [
+        "RGB LED",
+        "USB"
+    ],
+    "images": [
+        "trinket_m0.jpg"
+    ],
+    "mcu": "saml22",
+    "product": "SensorWatch Pro",
+    "thumbnail": "",
+    "url": "https://www.sensorwatch.net/",
+    "vendor": "Oddly Specific Objects"
+}

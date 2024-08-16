@@ -4,8 +4,7 @@
 
 #define MICROPY_HW_DFLL_USB_SYNC    (0) // use the 32 KHz crystal instead
 #define MICROPY_PY_MACHINE_ADC (0) // for now
-#define MICROPY_PY_MACHINE_DAC (0) // for now
-#define MICROPY_PY_MACHINE_PWM (0) // for now
+#define MICROPY_PY_MACHINE_DAC (0) // the saml22j18 has no DAC
 
 // do not bring in the hal utils_assert.h, use the system one instead
 #include <assert.h>

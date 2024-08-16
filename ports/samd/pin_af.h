@@ -42,9 +42,15 @@ typedef struct _machine_pin_obj_t {
     uint8_t tcc2;
 } machine_pin_obj_t;
 
+
+#if defined(MCU_SAMD21)
 #define ALT_FCT_TC        4
 #define ALT_FCT_TCC1      4
 #define ALT_FCT_TCC2      5
+#elif defined(MCU_SAML22)
+#define ALT_FCT_TCC1      5
+#define ALT_FCT_TCC2      -1 // saml22 has no TCC2
+#endif
 
 #elif defined(MCU_SAMD51)
 

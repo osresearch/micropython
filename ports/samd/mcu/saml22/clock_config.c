@@ -33,7 +33,7 @@
 #include "samd_soc.h"
 
 static uint32_t cpu_freq = CPU_FREQ;
-static uint32_t peripheral_freq = DFLL48M_FREQ;
+static uint32_t peripheral_freq = 1000000;
 static uint32_t dfll48m_calibration;
 
 #if 0

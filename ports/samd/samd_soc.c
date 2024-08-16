@@ -374,8 +374,8 @@ while(1)
 void samd_init(void) {
     init_clocks(get_cpu_freq());
     init_us_counter();
-    machine_rtc_start(false);
     usb_init();
+    machine_rtc_start(false);
     #if defined(MCU_SAMD51)
     mp_hal_ticks_cpu_enable();
     #endif

@@ -61,7 +61,7 @@ typedef struct _machine_pwm_obj_t {
 
 static Tcc *tcc_instance[] = TCC_INSTS;
 
-#if defined(MCU_SAMD21) || defined(MCU_SAML22)
+#if defined(MCU_SAMD21)
 
 static const int tcc_gclk_id[] = {
     GCLK_CLKCTRL_ID_TCC0_TCC1, GCLK_CLKCTRL_ID_TCC0_TCC1, GCLK_CLKCTRL_ID_TCC2_TC3
@@ -72,6 +72,53 @@ static uint32_t pwm_duty_values[8];
 
 #define PERBUF      PERB
 #define CCBUF       CCB
+
+#elif defined(MCU_SAML22)
+
+static const int tcc_gclk_id[] = { TCC0_GCLK_ID };
+const uint8_t tcc_channel_count[] = {4};
+const static uint8_t tcc_channel_offset[] = {0};
+static uint32_t pwm_duty_values[4];
+
+static void saml22_tcc0_init(void)
+{
+    // clock TCC0 with the main clock (8 MHz) and enable the peripheral clock.
+    hri_gclk_write_PCHCTRL_reg(GCLK, TCC0_GCLK_ID, GCLK_PCHCTRL_GEN_GCLK0_Val | GCLK_PCHCTRL_CHEN);
+    hri_mclk_set_APBCMASK_TCC0_bit(MCLK);
+    // disable and reset TCC0.
+    hri_tcc_clear_CTRLA_ENABLE_bit(TCC0);
+    hri_tcc_wait_for_sync(TCC0, TCC_SYNCBUSY_ENABLE);
+    hri_tcc_write_CTRLA_reg(TCC0, TCC_CTRLA_SWRST);
+    hri_tcc_wait_for_sync(TCC0, TCC_SYNCBUSY_SWRST);
+    // divide the clock down to 1 MHz
+    if (hri_usbdevice_get_CTRLA_ENABLE_bit(USB)) {
+        // if USB is enabled, we are running an 8 MHz clock.
+        hri_tcc_write_CTRLA_reg(TCC0, TCC_CTRLA_PRESCALER_DIV8);
+    } else {
+        // otherwise it's 4 Mhz.
+        hri_tcc_write_CTRLA_reg(TCC0, TCC_CTRLA_PRESCALER_DIV4);
+    }
+
+    // We're going to use normal PWM mode, which means period is controlled by PER, and duty cycle is controlled by
+    // each compare channel's value:
+    //  * Buzzer tones are set by setting PER to the desired period for a given frequency, and CC[1] to half of that
+    //    period (i.e. a square wave with a 50% duty cycle).
+    //  * LEDs on CC[2] and CC[3] can be set to any value from 0 (off) to PER (fully on).
+    hri_tcc_write_WAVE_reg(TCC0, TCC_WAVE_WAVEGEN_NPWM);
+
+    hri_tcc_write_PER_reg(TCC0, PWM_FULL_SCALE);
+
+    // Set the duty cycle of all pins to 0: LED's off, buzzer not buzzing.
+    hri_tcc_write_CC_reg(TCC0, 0, 0);
+    hri_tcc_write_CC_reg(TCC0, 1, 0);
+    hri_tcc_write_CC_reg(TCC0, 2, 0);
+    hri_tcc_write_CC_reg(TCC0, 3, 0);
+
+    // Enable the TCC
+    hri_tcc_set_CTRLA_ENABLE_bit(TCC0);
+    hri_tcc_wait_for_sync(TCC0, TCC_SYNCBUSY_ENABLE);
+}
+
 
 #elif defined(MCU_SAMD51)
 
@@ -153,7 +200,7 @@ static void mp_machine_pwm_init_helper(machine_pwm_obj_t *self,
     // Initialize the hardware if needed
     if (device_status[device] == PWM_NOT_INIT) {
         // Enable the device clock at first use.
-        #if defined(MCU_SAMD21) || defined(MCU_SAML22)
+        #if defined(MCU_SAMD21)
         // Enable synchronous clock. The bits are nicely arranged
         PM->APBCMASK.reg |= PM_APBCMASK_TCC0 << device;
         // Select multiplexer generic clock source and enable.
@@ -161,6 +208,8 @@ static void mp_machine_pwm_init_helper(machine_pwm_obj_t *self,
         // Wait while it updates synchronously.
         while (GCLK->STATUS.bit.SYNCBUSY) {
         }
+        #elif defined(MCU_SAML22)
+        saml22_tcc0_init();
         #elif defined(MCU_SAMD51)
         // GenClk2 to the tcc
         GCLK->PCHCTRL[tcc_gclk_id[device]].reg = GCLK_PCHCTRL_CHEN | GCLK_PCHCTRL_GEN(2);

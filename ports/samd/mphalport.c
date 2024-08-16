@@ -101,7 +101,10 @@ uint64_t mp_hal_ticks_us_64(void) {
     #if defined(MCU_SAMD21)
     us64_lower = REG_TC4_COUNT32_COUNT;
     intflag = TC4->COUNT32.INTFLAG.reg;
-    #elif defined(MCU_SAMD51) || defined(MCU_SAML22)
+    #elif defined(MCU_SAML22)
+    us64_lower = REG_TC2_COUNT32_COUNT;
+    intflag = TC2->COUNT32.INTFLAG.reg;
+    #elif defined(MCU_SAMD51)
     TC0->COUNT32.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
     while (TC0->COUNT32.CTRLBSET.reg != 0) {
     }
@@ -114,9 +117,9 @@ uint64_t mp_hal_ticks_us_64(void) {
         // has not yet been called, so perform the IRQ arithmetic now.
         us64_upper++;
     }
-    #if defined(MCU_SAMD21)
+    #if defined(MCU_SAMD21) || defined(MCU_SAML22)
     return ((uint64_t)us64_upper << 31) | (us64_lower >> 1);
-    #elif defined(MCU_SAMD51) || defined(MCU_SAML22)
+    #elif defined(MCU_SAMD51)
     return ((uint64_t)us64_upper << 28) | (us64_lower >> 4);
     #endif
 

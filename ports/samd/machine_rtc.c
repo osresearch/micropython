@@ -39,25 +39,48 @@ typedef struct _machine_rtc_obj_t {
 // Singleton RTC object.
 static const machine_rtc_obj_t machine_rtc_obj = {{&machine_rtc_type}};
 
+static bool _rtc_is_enabled(void) {
+    return RTC->MODE2.CTRLA.bit.ENABLE;
+}
+
+static void _rtc_sync(void) {
+    while (RTC->MODE2.SYNCBUSY.reg);
+}
+
+
 // Start the RTC Timer.
 void machine_rtc_start(bool force) {
     #if defined(MCU_SAMD21)
+    if (_rtc_is_enabled() && !force)
+        return
 
-    if (RTC->MODE2.CTRL.bit.ENABLE == 0 || force) {
-        // Enable the 1k Clock
-        GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK8 | GCLK_CLKCTRL_ID_RTC;
+    // Enable the 1k Clock
+    GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK8 | GCLK_CLKCTRL_ID_RTC;
 
-        RTC->MODE2.CTRL.reg = RTC_MODE2_CTRL_SWRST;
-        while (RTC->MODE2.STATUS.bit.SYNCBUSY) {
-        }
-        RTC->MODE2.CTRL.reg =
-            RTC_MODE2_CTRL_MODE_CLOCK |
-            RTC_MODE2_CTRL_PRESCALER_DIV1024 |
-            RTC_MODE2_CTRL_ENABLE;
-        while (RTC->MODE2.STATUS.bit.SYNCBUSY) {
-        }
-    }
+    RTC->MODE2.CTRL.reg = RTC_MODE2_CTRL_SWRST;
+    _rtc_sync();
+    RTC->MODE2.CTRL.reg =
+        RTC_MODE2_CTRL_MODE_CLOCK |
+        RTC_MODE2_CTRL_PRESCALER_DIV1024 |
+        RTC_MODE2_CTRL_ENABLE;
+    _rtc_sync();
 
+    #elif defined(MCU_SAML22)
+    MCLK->APBAMASK.reg |= MCLK_APBAMASK_RTC;
+    if (_rtc_is_enabled() && !force)
+      return;
+    // don't reset the RTC if it's already set up.
+    RTC->MODE2.CTRLA.bit.ENABLE = 0;
+    _rtc_sync();
+
+    RTC->MODE2.CTRLA.bit.SWRST = 1;
+    _rtc_sync();
+
+    RTC->MODE2.CTRLA.bit.MODE = RTC_MODE2_CTRLA_MODE_CLOCK_Val;
+    RTC->MODE2.CTRLA.bit.PRESCALER = RTC_MODE2_CTRLA_PRESCALER_DIV1024_Val;
+    RTC->MODE2.CTRLA.bit.CLOCKSYNC = 1;
+    RTC->MODE2.CTRLA.bit.ENABLE = 1;
+    _rtc_sync();
     #elif defined(MCU_SAMD51)
 
     if (RTC->MODE2.CTRLA.bit.ENABLE == 0 || force) {

@@ -57,6 +57,7 @@ static void set_timeout(uint32_t timeout) {
         timeout = MAX_TIMEOUT;
     }
 
+// TODO: SAML22 watchdog support
     #if defined(MCU_SAMD21)
     WDT->CTRL.reg = 0;
     while (WDT->STATUS.reg & WDT_STATUS_SYNCBUSY) {

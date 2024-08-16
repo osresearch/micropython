@@ -34,9 +34,9 @@
 
 static uint32_t cpu_freq = CPU_FREQ;
 static uint32_t peripheral_freq = DFLL48M_FREQ;
-#if 0
 static uint32_t dfll48m_calibration;
 
+#if 0
 int sercom_gclk_id[] = {
     GCLK_CLKCTRL_ID_SERCOM0_CORE, GCLK_CLKCTRL_ID_SERCOM1_CORE,
     GCLK_CLKCTRL_ID_SERCOM2_CORE, GCLK_CLKCTRL_ID_SERCOM3_CORE,
@@ -53,24 +53,14 @@ uint32_t get_peripheral_freq(void) {
 }
 
 void set_cpu_freq(uint32_t cpu_freq_arg) {
-
-#if 0
     // Set 1 wait state to be safe
     NVMCTRL->CTRLB.reg = NVMCTRL_CTRLB_MANW | NVMCTRL_CTRLB_RWS(1);
 
     int div = MAX(DFLL48M_FREQ / cpu_freq_arg, 1);
     peripheral_freq = DFLL48M_FREQ / div;
 
-    // Enable GCLK output: 48MHz from DFLL48M on both CCLK0 and GCLK2
-    GCLK->GENDIV.reg = GCLK_GENDIV_ID(0) | GCLK_GENDIV_DIV(div);
-    GCLK->GENCTRL.reg = GCLK_GENCTRL_GENEN | GCLK_GENCTRL_SRC_DFLL48M | GCLK_GENCTRL_ID(0);
-    while (GCLK->STATUS.bit.SYNCBUSY) {
-    }
-    GCLK->GENDIV.reg = GCLK_GENDIV_ID(2) | GCLK_GENDIV_DIV(div);
-    GCLK->GENCTRL.reg = GCLK_GENCTRL_GENEN | GCLK_GENCTRL_SRC_DFLL48M | GCLK_GENCTRL_ID(2);
-    while (GCLK->STATUS.bit.SYNCBUSY) {
-    }
     // The comparison is >=, such that for 48MHz still the FDPLL96 is used for the CPU clock.
+#if 0
     if (cpu_freq_arg >= 48000000) {
         cpu_freq = cpu_freq_arg;
         // Connect GCLK1 to the FDPLL96 input.
@@ -97,22 +87,21 @@ void set_cpu_freq(uint32_t cpu_freq_arg) {
         // Disable the FDPLL96M in case it was enabled.
         SYSCTRL->DPLLCTRLA.reg = 0;
     }
+
     if (cpu_freq >= 8000000) {
-        // Enable GCLK output: 48MHz on GCLK5 for USB
-        GCLK->GENDIV.reg = GCLK_GENDIV_ID(5) | GCLK_GENDIV_DIV(1);
-        GCLK->GENCTRL.reg = GCLK_GENCTRL_GENEN | GCLK_GENCTRL_SRC_DFLL48M | GCLK_GENCTRL_ID(5);
-        while (GCLK->STATUS.bit.SYNCBUSY) {
-        }
+        // Enable GCLK output: 48MHz on GCLK4 for USB
+        GCLK->GENCTRL[4].reg = GCLK_GENCTRL_GENEN | GCLK_GENCTRL_SRC_DFLL48M | GCLK_GENCTRL_DIV(1);
     } else {
-        // Disable GCLK output on GCLK5 for USB, since USB is not reliable below 8 Mhz.
-        GCLK->GENCTRL.reg = GCLK_GENCTRL_ID(5);
-        while (GCLK->STATUS.bit.SYNCBUSY) {
-        }
+        // Disable GCLK output on GCLK4 for USB, since USB is not reliable below 8 Mhz.
+        GCLK->GENCTRL[4].reg = 0;
     }
+    while (GCLK->SYNCBUSY.bit.GENCTRL4) {
+    }
+#endif
+
     // Set 0 wait states for slower CPU clock
     NVMCTRL->CTRLB.reg = NVMCTRL_CTRLB_MANW | NVMCTRL_CTRLB_RWS(cpu_freq > 24000000 ? 1 : 0);
     SysTick_Config(cpu_freq / 1000);
-#endif
 }
 
 #if !MICROPY_HW_XOSC32K || MICROPY_HW_DFLL_USB_SYNC
@@ -196,11 +185,42 @@ void check_usb_clock_recovery_mode(void) {
 //
 // If none of the mentioned defines is set, the device uses the internal oscillators.
 
+#define SWCLK GPIO(GPIO_PORTA, 30)
+
 void init_clocks(uint32_t cpu_freq) {
-#if 0
     dfll48m_calibration = 0; // please the compiler
 
-    // SAMD21 Clock settings
+    // disable the LED pin (it may have been enabled by the bootloader)
+    gpio_set_pin_direction(GPIO(GPIO_PORTA, 20), GPIO_DIRECTION_OFF);
+
+    // disable debugger hot-plugging
+/*
+    gpio_set_pin_function(SWCLK, GPIO_PIN_FUNCTION_OFF);
+    gpio_set_pin_direction(SWCLK, GPIO_DIRECTION_OFF);
+    gpio_set_pin_pull_mode(SWCLK, GPIO_PULL_OFF);
+*/
+
+    // RAM should be back-biased in STANDBY
+    PM->STDBYCFG.bit.BBIASHS = 1;
+
+    // Use switching regulator for lower power consumption.
+    SUPC->VREG.bit.SEL = 1;
+
+    // Use switching regulator for lower power consumption.
+    SUPC->VREG.bit.SEL = 1;
+    
+    // per Microchip datasheet clarification DS80000782,
+    // work around silicon erratum 1.7.2, which causes the microcontroller to lock up on leaving standby:
+    // request that the voltage regulator run in standby, and also that it switch to PL0.
+    SUPC->VREG.bit.RUNSTDBY = 1;
+    SUPC->VREG.bit.STDBYPL0 = 1;
+    while(!SUPC->STATUS.bit.VREGRDY); // wait for voltage regulator to become ready
+
+
+
+
+    // SAML22 Clock settings
+    // TODO: fix this -- there are five GCLKs so we can't map all of them
     //
     // GCLK0: 48MHz, source: DFLL48M or FDPLL96M, usage: CPU
     // GCLK1: 32kHz, source: XOSC32K or OSCULP32K, usage: FDPLL96M reference
@@ -219,6 +239,7 @@ void init_clocks(uint32_t cpu_freq) {
     NVMCTRL->CTRLB.bit.MANW = 1; // errata "Spurious Writes"
     NVMCTRL->CTRLB.bit.RWS = 1; // 1 read wait state for 48MHz
 
+#if 0 // TODO: fix the 32khz oscillator input
     #if MICROPY_HW_XOSC32K
     // Set up OSC32K according data sheet 17.6.3
     SYSCTRL->XOSC32K.reg = SYSCTRL_XOSC32K_STARTUP(0x3) | SYSCTRL_XOSC32K_EN32K |
@@ -333,15 +354,16 @@ void init_clocks(uint32_t cpu_freq) {
     }
 
     #endif // MICROPY_HW_XOSC32K
+#endif
 
     set_cpu_freq(cpu_freq);
 
+/*
     // Enable GCLK output: 2MHz on GCLK3 for TC4
-    GCLK->GENDIV.reg = GCLK_GENDIV_ID(3) | GCLK_GENDIV_DIV(24);
-    GCLK->GENCTRL.reg = GCLK_GENCTRL_GENEN | GCLK_GENCTRL_SRC_DFLL48M | GCLK_GENCTRL_ID(3);
-    while (GCLK->STATUS.bit.SYNCBUSY) {
+    GCLK->GENCTRL[3].reg = GCLK_GENCTRL_GENEN | GCLK_GENCTRL_SRC_DFLL48M | GCLK_GENCTRL_DIV(24);
+    while (GCLK->SYNCBUSY.bit.GENCTRL3) {
     }
-#endif
+*/
 }
 
 void enable_sercom_clock(int id) {

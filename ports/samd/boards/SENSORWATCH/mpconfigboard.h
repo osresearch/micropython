@@ -1,7 +1,8 @@
 #define MICROPY_HW_BOARD_NAME "SensorWatch"
 #define MICROPY_HW_MCU_NAME   "SAML22J18A"
+#define MICROPY_HW_XOSC32K  (1) // 32 KHz watch crystal
 
-#define MICROPY_HW_DFLL_USB_SYNC    (1)
+#define MICROPY_HW_DFLL_USB_SYNC    (0) // use the 32 KHz crystal instead
 #define MICROPY_PY_MACHINE_ADC (0) // for now
 #define MICROPY_PY_MACHINE_DAC (0) // for now
 #define MICROPY_PY_MACHINE_PWM (0) // for now

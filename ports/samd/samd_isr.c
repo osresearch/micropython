@@ -90,6 +90,7 @@ void Reset_Handler(void) {
 }
 
 void Default_Handler(void) {
+    extern void infinite_loop(); infinite_loop();
     for (;;) {
     }
 }
@@ -115,7 +116,12 @@ void us_timer_IRQ(void) {
         ticks_us64_upper++;
     }
     TC4->COUNT32.INTFLAG.reg = TC_INTFLAG_OVF;
-    #elif defined(MCU_SAMD51) || defined(MCU_SAML22)
+    #elif defined(MCU_SAML22)
+    if (TC2->COUNT32.INTFLAG.reg & TC_INTFLAG_OVF) {
+        ticks_us64_upper++;
+    }
+    TC2->COUNT32.INTFLAG.reg = TC_INTFLAG_OVF;
+    #elif defined(MCU_SAMD51)
     if (TC0->COUNT32.INTFLAG.reg & TC_INTFLAG_OVF) {
         ticks_us64_upper++;
     }
@@ -229,7 +235,7 @@ const DeviceVectors isr_vector __attribute__((section(".isr_vector"))) = {
     .pfnSERCOM1_Handler        = Sercom1_Handler,
     .pfnSERCOM2_Handler        = Sercom2_Handler,
     .pfnSERCOM3_Handler        = Sercom3_Handler,
-    .pfnTC0_Handler            = us_timer_IRQ,
+    .pfnTC2_Handler            = us_timer_IRQ,
 //  .pfnSLCD_Handler           = SLCD_Handler, // todo
 //  .pfnTRNG_Handler           = TRNG_Handler,
 };

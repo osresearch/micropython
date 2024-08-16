@@ -76,7 +76,7 @@ unsigned long trng_random_u32(int delay);
 
 #define VFS_BLOCK_SIZE_BYTES            (1536) // 24x 64B flash pages;
 
-#define CPU_FREQ                        (48000000)
+#define CPU_FREQ                        (8000000)
 #define DFLL48M_FREQ                    (48000000)
 #define MAX_CPU_FREQ                    (54000000)
 #define FDPLL_REF_FREQ                  (32768)

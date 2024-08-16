@@ -327,7 +327,20 @@ static mp_obj_t machine_pin_irq(size_t n_args, const mp_obj_t *pos_args, mp_map_
         PM->APBAMASK.bit.EIC_ |= 1;
         GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK2 | EIC_GCLK_ID;
 
-        #elif defined(MCU_SAMD51) || defined(MCU_SAML22)
+        #elif defined(MCU_SAML22)
+        uint32_t irq_num = 3;
+        // Disable all IRQs from the affected source while data is updated.
+        NVIC_DisableIRQ(irq_num);
+        // Disable EIC
+        EIC->CTRLA.bit.ENABLE = 0;
+        while (EIC->SYNCBUSY.bit.ENABLE != 0) {
+        }
+        EIC->INTENCLR.reg = (1 << eic_id);
+        // Enable the clocks
+        MCLK->APBAMASK.bit.EIC_ |= 1;
+        GCLK->PCHCTRL[EIC_GCLK_ID].reg = GCLK_PCHCTRL_CHEN | GCLK_PCHCTRL_GEN_GCLK2;
+
+        #elif defined(MCU_SAMD51)
 
         uint32_t irq_num = eic_id + 12;
         // Disable all IRQs from the affected source while data is updated.
@@ -384,8 +397,10 @@ void pin_irq_deinit_all(void) {
         MP_STATE_PORT(machine_pin_irq_objects[i]) = NULL;
     }
     // Disable all irq's at the NVIC controller
-    #if defined(MCU_SAMD21) || defined(MCU_SAML22)
+    #if defined(MCU_SAMD21)
     NVIC_DisableIRQ(4);
+    #elif defined(MCU_SAML22)
+    NVIC_DisableIRQ(3);
     #elif defined(MCU_SAMD51)
     for (int i = 12; i < 20; i++) {
         NVIC_DisableIRQ(i);

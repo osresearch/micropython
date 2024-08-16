@@ -240,13 +240,15 @@ static void usb_init(void) {
 
 static void saml22_us_counter(void)
 {
-    MCLK->APBCMASK.bit.TC2_ = 1; // Enable TC2 clock
-    MCLK->APBCMASK.bit.TC3_ = 1; // Enable TC3 clock
+    // is this not required?
+    //MCLK->APBCMASK.bit.TC2_ = 1; // Enable TC2 clock
+    //MCLK->APBCMASK.bit.TC3_ = 1; // Enable TC3 clock
 
     hri_gclk_write_PCHCTRL_reg(GCLK, TC2_GCLK_ID, GCLK_PCHCTRL_GEN_GCLK0_Val | GCLK_PCHCTRL_CHEN);
     // and enable the peripheral clock.
     hri_mclk_set_APBCMASK_TC2_bit(MCLK);
-    // disable and reset TC0.
+
+    // disable and reset TC2.
     hri_tc_clear_CTRLA_ENABLE_bit(TC2);
     hri_tc_wait_for_sync(TC2, TC_SYNCBUSY_ENABLE);
     hri_tc_write_CTRLA_reg(TC2, TC_CTRLA_SWRST);

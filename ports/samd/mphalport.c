@@ -102,6 +102,10 @@ uint64_t mp_hal_ticks_us_64(void) {
     us64_lower = REG_TC4_COUNT32_COUNT;
     intflag = TC4->COUNT32.INTFLAG.reg;
     #elif defined(MCU_SAML22)
+    // synchronize the TC2 counter into our clock domani
+    TC2->COUNT32.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+    while (TC2->COUNT32.CTRLBSET.reg != 0);
+    // it is now safe to read the TC2 counter
     us64_lower = REG_TC2_COUNT32_COUNT;
     intflag = TC2->COUNT32.INTFLAG.reg;
     #elif defined(MCU_SAMD51)

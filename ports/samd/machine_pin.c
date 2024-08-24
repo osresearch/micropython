@@ -102,12 +102,13 @@ static void pin_validate_drive(bool strength) {
 
 // Pin.init(mode, pull=None, *, value=None, drive=0). No 'alt' yet.
 static mp_obj_t machine_pin_obj_init_helper(const machine_pin_obj_t *self, size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    enum { ARG_mode, ARG_pull, ARG_value, ARG_drive, ARG_alt };
+    enum { ARG_mode, ARG_pull, ARG_value, ARG_drive, ARG_function };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_mode, MP_ARG_OBJ, {.u_rom_obj = MP_ROM_NONE}},
         { MP_QSTR_pull, MP_ARG_OBJ, {.u_rom_obj = MP_ROM_NONE}},
         { MP_QSTR_value, MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_rom_obj = MP_ROM_NONE}},
         { MP_QSTR_drive, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = GPIO_STRENGTH_2MA} },
+        { MP_QSTR_function, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
     };
 
     // parse args
@@ -134,6 +135,13 @@ static mp_obj_t machine_pin_obj_init_helper(const machine_pin_obj_t *self, size_
             mp_hal_pin_input(self->pin_id); // If no args are given, the Pin is 'input'.
         }
     }
+
+    // configure alternate function
+    const int alt_function = args[ARG_function].u_int;
+    if (alt_function >= 0) {
+      gpio_set_pin_function(self->pin_id, alt_function);
+    }
+
     // configure pull. Only to be used with IN mode. The function sets the pin to INPUT.
     uint32_t pull = 0;
     mp_int_t dir = mp_hal_get_pin_direction(self->pin_id);

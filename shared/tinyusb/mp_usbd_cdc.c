@@ -125,6 +125,8 @@ mp_uint_t mp_usbd_cdc_tx_strn(const char *str, mp_uint_t len) {
         tud_cdc_write_flush();
         i += n2;
     }
+    // force an extra umph
+    mp_usbd_task();
     return i;
 }
 

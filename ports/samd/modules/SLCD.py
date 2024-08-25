@@ -55,30 +55,25 @@ def animate(delay=0.1):
 			slcd.off(com,seg)
 			time.sleep(delay)
 
+def draw(segs, values):
+	while segs != 0:
+		slcd.set(segs & 0xFF, values & 1)
+		segs >>= 8
+		values >>= 1
+
 def digit(n,v):
 	if v < 0 or v > 9:
 		return False
 	if n < 0 or n >= len(segments):
 		return False
-	font = digits[v]
-	segs = segments[n]
 
-	while segs != 0:
-		slcd.set(segs & 0xFF, font & 1)
-		segs >>= 8
-		font >>= 1
+	draw(segments[n], digits[v])
 
 
-def showtime():
-	now = time.localtime()
-	digit(4, now[3] // 10)
-	digit(5, now[3] %  10)
-	digit(6, now[4] // 10)
-	digit(7, now[4] %  10)
-	digit(8, now[5] // 10)
-	digit(9, now[5] %  10)
-
-	day = now[2]
-	if day > 10:
-		digit(2, day // 10)
-	digit(3, day % 10)
+def python():
+	draw(segments[4], 0b01110011)
+	draw(segments[5], 0b01101110)
+	draw(segments[6], 0b01111000)
+	draw(segments[7], 0b01110100)
+	draw(segments[8], 0b01011100)
+	draw(segments[9], 0b01010100)

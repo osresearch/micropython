@@ -1,0 +1,15 @@
+#!/usr/bin/python3
+import time, sys
+now = time.localtime()
+
+print("%04d-%02d-%02d %02d:%02d:%02d" % (now.tm_year,now.tm_mon,now.tm_mday,now.tm_hour,now.tm_min,now.tm_sec), file=sys.stderr)
+print(f"""machine.RTC().datetime((
+{now.tm_year},
+{now.tm_mon},
+{now.tm_mday},
+{now.tm_wday+1},
+{now.tm_hour},
+{now.tm_min},
+{now.tm_sec},
+0
+))\r\n""")

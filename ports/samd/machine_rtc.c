@@ -79,6 +79,9 @@ void machine_rtc_start(bool force) {
     RTC->MODE2.CTRLA.bit.MODE = RTC_MODE2_CTRLA_MODE_CLOCK_Val;
     RTC->MODE2.CTRLA.bit.PRESCALER = RTC_MODE2_CTRLA_PRESCALER_DIV1024_Val;
     RTC->MODE2.CTRLA.bit.CLOCKSYNC = 1;
+    _rtc_sync();
+    RTC->MODE2.CTRLA.bit.ENABLE = 1;
+    _rtc_sync();
     RTC->MODE2.CTRLA.bit.ENABLE = 1;
     _rtc_sync();
     #elif defined(MCU_SAMD51)

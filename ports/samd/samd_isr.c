@@ -110,6 +110,13 @@ void SysTick_Handler(void) {
     }
 }
 
+void RTC_Handler(void) {
+    extern void led_set(int,int);
+    extern void led_green_toggle(void);
+    //led_green_toggle();
+    RTC->MODE2.INTFLAG.reg = ~0;
+}
+
 void us_timer_IRQ(void) {
     #if defined(MCU_SAMD21)
     if (TC4->COUNT32.INTFLAG.reg & TC_INTFLAG_OVF) {
@@ -236,6 +243,7 @@ const DeviceVectors isr_vector __attribute__((section(".isr_vector"))) = {
     .pfnSERCOM2_Handler        = Sercom2_Handler,
     .pfnSERCOM3_Handler        = Sercom3_Handler,
     .pfnTC2_Handler            = us_timer_IRQ,
+    .pfnRTC_Handler            = RTC_Handler,
 //  .pfnSLCD_Handler           = SLCD_Handler, // todo
 //  .pfnTRNG_Handler           = TRNG_Handler,
 };

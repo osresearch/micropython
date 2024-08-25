@@ -44,7 +44,7 @@ typedef struct _machine_adc_obj_t {
 #define DEFAULT_ADC_BITS    12
 #define DEFAULT_ADC_AVG     16
 
-#if defined(MCU_SAMD21) || defined(MCU_SAML22)
+#if defined(MCU_SAMD21)
 static uint8_t adc_vref_table[] = {
     ADC_REFCTRL_REFSEL_INT1V_Val, ADC_REFCTRL_REFSEL_INTVCC0_Val,
     ADC_REFCTRL_REFSEL_INTVCC1_Val, ADC_REFCTRL_REFSEL_AREFA_Val, ADC_REFCTRL_REFSEL_AREFB_Val
@@ -56,6 +56,34 @@ static uint8_t adc_vref_table[] = {
 #endif
 
 #define ADC_EVSYS_CHANNEL    0
+
+#elif defined(MCU_SAML22)
+static uint8_t adc_vref_table[] = {
+    ADC_REFCTRL_REFSEL_INTREF_Val,
+    ADC_REFCTRL_REFSEL_INTVCC0_Val,
+    ADC_REFCTRL_REFSEL_INTVCC1_Val,
+    ADC_REFCTRL_REFSEL_INTVCC2_Val,
+};
+
+// this is in the datasheet but not the header? (page 895)
+#define ADC_INPUTCTRL_MUXNEG_GND_Val 0x18
+
+#if MICROPY_HW_ADC_VREF
+#define DEFAULT_ADC_VREF    MICROPY_HW_ADC_VREF
+#else
+#define DEFAULT_ADC_VREF    (3)
+#endif
+
+static void adc_sync(Adc * const adc) {
+#if defined(MCU_SAMD21)
+    while (adc->STATUS.bit.SYNCBUSY)
+        ;
+#elif defined(MCU_SAMD51) || defined(MCU_SAML22)
+    // any of the synchronized registesr
+    while (adc->SYNCBUSY.reg)
+        ;
+#endif
+}
 
 #elif defined(MCU_SAMD51)
 
@@ -80,7 +108,11 @@ uint32_t busy_flags = 0;
 bool init_flags[2] = {false, false};
 static void adc_init(machine_adc_obj_t *self);
 static uint8_t resolution[] = {
+#if defined(MCU_SAML22)
+    ADC_CTRLC_RESSEL_8BIT_Val, ADC_CTRLC_RESSEL_10BIT_Val, ADC_CTRLC_RESSEL_12BIT_Val
+#else
     ADC_CTRLB_RESSEL_8BIT_Val, ADC_CTRLB_RESSEL_10BIT_Val, ADC_CTRLB_RESSEL_12BIT_Val
+#endif
 };
 
 extern mp_int_t log2i(mp_int_t num);
@@ -141,12 +173,39 @@ static mp_obj_t mp_machine_adc_make_new(const mp_obj_type_t *type, size_t n_args
 static mp_int_t mp_machine_adc_read_u16(machine_adc_obj_t *self) {
     Adc *adc = adc_bases[self->adc_config.device];
     // Set the reference voltage. Default: external AREFA.
+#if defined(MCU_SAML22)
+    mp_printf(MP_PYTHON_PRINTER, "adc(bits=%d, vref=%x, res=%x, chan=%x, avg=%x)\n",
+	self->bits,
+	adc_vref_table[self->vref],
+	resolution[(self->bits - 8) / 2],
+	self->adc_config.channel,
+	self->avg
+    );
+    // todo: if REFSEL has changed, throw away a reading
+    adc->REFCTRL.bit.REFSEL = adc_vref_table[self->vref];
+    adc->INPUTCTRL.bit.MUXNEG = ADC_INPUTCTRL_MUXNEG_GND_Val;
+    adc->INPUTCTRL.bit.MUXPOS = self->adc_config.channel;
+    adc->CTRLC.bit.RESSEL = resolution[(self->bits - 8) / 2];
+    adc->AVGCTRL.bit.SAMPLENUM = ADC_AVGCTRL_SAMPLENUM_16_Val;
+    adc->AVGCTRL.reg = self->avg | ADC_AVGCTRL_ADJRES(self->avg);
+    adc->SAMPCTRL.bit.SAMPLEN = 0;
+    adc->INTENSET.reg = ADC_INTENSET_RESRDY;
+    adc_sync(adc);
+
+    adc->CTRLA.bit.ENABLE = 1;
+    adc_sync(adc);
+
+    // clear the RESRDY flag if it is set from an old conversion
+    if (adc->INTFLAG.bit.RESRDY)
+      (void) adc->RESULT.reg;
+#else
     adc->REFCTRL.reg = adc_vref_table[self->vref];
     // Set Input channel and resolution
     // Select the pin as positive input and gnd as negative input reference, non-diff mode by default
     adc->INPUTCTRL.reg = ADC_INPUTCTRL_MUXNEG_GND | self->adc_config.channel;
     // set resolution. Scale 8-16 to 0 - 4 for table access.
     adc->CTRLB.bit.RESSEL = resolution[(self->bits - 8) / 2];
+#endif
     // Measure input voltage
     adc->SWTRIG.bit.START = 1;
     while (adc->INTFLAG.bit.RESRDY == 0) {
@@ -166,6 +225,52 @@ void adc_deinit_all(void) {
     init_flags[1] = 0;
 }
 
+static void saml22_adc_init(Adc * adc_unused) {
+    (void) adc_unused; // there is only one
+    MCLK->APBCMASK.reg |= MCLK_APBCMASK_ADC;
+    GCLK->PCHCTRL[ADC_GCLK_ID].reg = GCLK_PCHCTRL_GEN_GCLK0 | GCLK_PCHCTRL_CHEN;
+
+    uint16_t calib_reg = 0
+        | ADC_CALIB_BIASREFBUF((*(uint32_t *)ADC_FUSES_BIASREFBUF_ADDR >> ADC_FUSES_BIASREFBUF_Pos))
+        | ADC_CALIB_BIASCOMP((*(uint32_t *)ADC_FUSES_BIASCOMP_ADDR >> ADC_FUSES_BIASCOMP_Pos))
+        ;
+
+    if (!ADC->SYNCBUSY.bit.SWRST) {
+        if (ADC->CTRLA.bit.ENABLE) {
+            ADC->CTRLA.bit.ENABLE = 0;
+            adc_sync(ADC);
+        }
+        ADC->CTRLA.bit.SWRST = 1;
+    }
+    adc_sync(ADC);
+
+    if (USB->DEVICE.CTRLA.bit.ENABLE) {
+        // if USB is enabled, we are running an 8 MHz clock.
+        // divide by 16 for a 500kHz ADC clock.
+        ADC->CTRLB.bit.PRESCALER = ADC_CTRLB_PRESCALER_DIV16_Val;
+    } else {
+        // otherwise it's 4 Mhz. divide by 8 for a 500kHz ADC clock.
+        ADC->CTRLB.bit.PRESCALER = ADC_CTRLB_PRESCALER_DIV8_Val;
+    }
+
+    ADC->CALIB.reg = calib_reg;
+    ADC->REFCTRL.bit.REFSEL = ADC_REFCTRL_REFSEL_INTVCC2_Val;
+    ADC->INPUTCTRL.bit.MUXNEG = ADC_INPUTCTRL_MUXNEG_GND_Val;
+    ADC->CTRLC.bit.RESSEL = ADC_CTRLC_RESSEL_16BIT_Val;
+    ADC->AVGCTRL.bit.SAMPLENUM = ADC_AVGCTRL_SAMPLENUM_16_Val;
+    ADC->SAMPCTRL.bit.SAMPLEN = 0;
+    ADC->INTENSET.reg = ADC_INTENSET_RESRDY;
+    ADC->CTRLA.bit.ENABLE = 1;
+    adc_sync(ADC);
+
+    // throw away one measurement after reference change (the channel doesn't matter).
+    ADC->SWTRIG.bit.START = 1;
+    while (ADC->INTFLAG.bit.RESRDY == 0)
+        ;
+    (void) ADC->RESULT.reg;
+}
+
+
 static void adc_init(machine_adc_obj_t *self) {
     // ADC & clock init is done only once per ADC
     if (init_flags[self->adc_config.device] == false) {
@@ -173,7 +278,7 @@ static void adc_init(machine_adc_obj_t *self) {
 
         init_flags[self->adc_config.device] = true;
 
-        #if defined(MCU_SAMD21) || defined(MCU_SAML22)
+        #if defined(MCU_SAMD21)
         // Configuration SAMD21
         // Enable APBD clocks and PCHCTRL clocks; GCLK2 at 48 MHz
         PM->APBCMASK.reg |= PM_APBCMASK_ADC;
@@ -182,8 +287,7 @@ static void adc_init(machine_adc_obj_t *self) {
         }
         // Reset ADC registers
         adc->CTRLA.bit.SWRST = 1;
-        while (adc->CTRLA.bit.SWRST) {
-        }
+        adc_sync(adc);
         // Get the calibration data
         uint32_t bias = (*((uint32_t *)ADC_FUSES_BIASCAL_ADDR) & ADC_FUSES_BIASCAL_Msk) >> ADC_FUSES_BIASCAL_Pos;
         uint32_t linearity = (*((uint32_t *)ADC_FUSES_LINEARITY_0_ADDR) & ADC_FUSES_LINEARITY_0_Msk) >> ADC_FUSES_LINEARITY_0_Pos;
@@ -198,9 +302,10 @@ static void adc_init(machine_adc_obj_t *self) {
         adc->AVGCTRL.reg = self->avg | ADC_AVGCTRL_ADJRES(self->avg);
         // Enable ADC and wait to be ready
         adc->CTRLA.bit.ENABLE = 1;
-        while (adc->STATUS.bit.SYNCBUSY) {
-        }
+        adc_sync(adc);
 
+        #elif defined(MCU_SAML22)
+        saml22_adc_init(adc);
         #elif defined(MCU_SAMD51)
         // Configuration SAMD51
         // Enable APBD clocks and PCHCTRL clocks; GCLK2 at 48 MHz
@@ -238,8 +343,7 @@ static void adc_init(machine_adc_obj_t *self) {
         adc->AVGCTRL.reg = self->avg | ADC_AVGCTRL_ADJRES(self->avg);
         // Enable ADC and wait to be ready
         adc->CTRLA.bit.ENABLE = 1;
-        while (adc->SYNCBUSY.bit.ENABLE) {
-        }
+        adc_sync(adc);
 
         #endif
     }

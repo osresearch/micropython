@@ -141,8 +141,17 @@ static void mp_machine_lightsleep(size_t n_args, const mp_obj_t *args) {
     GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK2 | EIC_GCLK_ID;
 
     #elif defined(MCU_SAML22)
-/* TODO: */
-(void) duration;
+/* TODO: slow down the clocks */
+    if (duration > 0) {
+        uint32_t t0 = systick_ms;
+        while ((systick_ms - t0 < duration) && (EIC_occured == false)) {
+            __WFI();
+        }
+    } else {
+        while (EIC_occured == false) {
+            __WFI();
+        }
+    }
     #elif defined(MCU_SAMD51)
     // Switch the peripheral clock off
     GCLK->GENCTRL[2].reg = 0;

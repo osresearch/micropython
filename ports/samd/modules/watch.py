@@ -2,6 +2,9 @@ import machine, time, sys, os
 from machine import Pin, PWM
 import SLCD
 
+military_time = True
+localOffset = 2 # CEST
+geo_coords = (52.37, 4.89)
 
 rtc = machine.RTC()
 
@@ -55,7 +58,6 @@ usb_connected = vbus.value()
 
 day_code = [ "MO", "TU", "WD", "TH", "FR", "SA", "SU", ]
 day_list = [ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 ]
-military_time = True
 
 def days_in_month(year,mon):
 	if mon != 2:
@@ -111,15 +113,6 @@ def showtime(force):
 
 	return True
 
-def show_usec(force):
-	now = time.ticks_us() // 1000
-	for i in range(7,3,-1):
-		SLCD.digit(i, now % 10)
-		now //= 10
-	sec = time.localtime()[5]
-	SLCD.digit(8, sec // 10)
-	SLCD.digit(9, sec %  10)
-	return False
 
 set_field = 0
 counter = 0
@@ -222,6 +215,45 @@ def settime(force):
 	# Don't deep sleep
 	return False
 
+
+from sunrise import sunrise
+
+solartime_mode = True
+def solartime(force):
+	global solartime_mode
+	if not force and not btn_start.value:
+		return True
+	now = rtc.datetime()
+	year = now[0]
+	month = now[1] + 1  # 0 - 11 => 1 - 12
+	day = now[2]
+
+	if btn_start.rising:
+		solartime_mode = not solartime_mode
+	t = sunrise(solartime_mode, geo_coords[0], geo_coords[1], year, month, day, localOffset=localOffset)
+
+	SLCD.char(0, "S")
+	if solartime_mode:
+		SLCD.char(1, "R")  # sun rise
+	else:
+		SLCD.char(1, "D")  # sun set
+
+	SLCD.colon(1)
+	SLCD.h24(1)
+
+	if not t:
+		digit(4, 0, True)
+		digit(6, 0, True)
+	else:
+		hour = int(t)
+		minute = int((t * 60) % 60)
+		second = int((t * 3600) % 60)
+
+		digit(4, hour, False)
+		digit(6, minute, False)
+		digit(8, second, False)
+	return True
+
 # create interrupt handlers for the three buttons so that
 # they will wake from the deep sleep
 #btn_mode.irq(handler=False, trigger=Pin.IRQ_RISING, hard=True)
@@ -230,26 +262,43 @@ def settime(force):
 
 modes = [
 	showtime,
+	solartime,
 	settime,
 ]
 
 def run():
 	mode = 0
-	last_mode = 0
+	wait_falling = False
+
+	# force one full display update
+	showtime(True)
+
 	while True:
-		if mode == 0 and not btn_mode.pin.value():
+		btn_mode.update()
+		if mode == 0 and not btn_mode.value:
 			goto_sleep = showtime(False)
 		else:
-			btn_mode.update()
 			btn_light.update()
 			btn_start.update()
 		
 			force = False
-			if btn_mode.rising:
-				mode = (mode + 1) % len(modes)
+			new_mode = mode
 
+#			if btn_mode.value and btn_mode.count > 10:
+#				# long press, should go into set mode
+#				new_mode = len(modes) - 1
+#				wait_falling = True
+			if btn_mode.rising:
+				# on falling edge of mode button, switch
+				# to new mode (unless we're waiting for
+				# a falling edge)
+				wait_falling = False
+				new_mode = (mode + 1) % (len(modes))
+
+			if mode != new_mode:
 				# update the full display
 				SLCD.slcd.clear()
+				mode = new_mode
 				force = True
 				print("new mode", mode)
 

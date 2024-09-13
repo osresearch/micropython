@@ -38,6 +38,33 @@ digits = [
     0b00000111, # 7
     0b01111111, # 8
     0b01101111, # 9
+    0b00000000, # blank
+    0b01110111, # A
+    0b01111111, # B
+    0b00111001, # C
+    0b00111111, # D
+    0b01111001, # E
+    0b01110001, # F
+    0b00111101, # G
+    0b01110110, # H
+    0b10001001, # I (only works in position 0)
+    0b00001110, # J
+    0b01110101, # K
+    0b00111000, # L
+    0b10110111, # M (only works in position 0)
+    0b00110111, # N
+    0b00111111, # O
+    0b01110011, # P
+    0b01100111, # Q
+    0b11110111, # R (only works in position 1)
+    0b01101101, # S
+    0b10000001, # T (only works in position 0; set (1, 12) to make it work in position 1)
+    0b00111110, # U
+    0b00111110, # V
+    0b10111110, # W (only works in position 0)
+    0b01111110, # X
+    0b01101110, # Y
+    0b00011011, # Z
 ]
 
 
@@ -62,13 +89,31 @@ def draw(segs, values):
 		values >>= 1
 
 def digit(n,v):
-	if v < 0 or v > 9:
+	if v < 0 or v >= len(digits):
 		return False
 	if n < 0 or n >= len(segments):
 		return False
 
 	draw(segments[n], digits[v])
 
+def char(n,c):
+	if n < 0 or n >= len(segments):
+		return False
+
+	c = ord(c)
+	values = digits[10] # blank
+	if ord('0') <= c and c <= ord('9'):
+		values = digits[c - ord('0')]
+	elif ord('A') <= c and c <= ord('Z'):
+		values = digits[c - ord('A') + 11]
+	draw(segments[n], values)
+
+def colon(v):
+	slcd.set(0x50, v)
+def pm(v):
+	slcd.set(0x91, v)
+def h24(v):
+	slcd.set(0x90, v)
 
 def python():
 	draw(segments[4], 0b01110011)

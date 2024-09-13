@@ -1,3 +1,6 @@
+import machine
+#machine.Pin.cpu.PA20.value(1)
+
 #print("hello, world")
 
 #import gc

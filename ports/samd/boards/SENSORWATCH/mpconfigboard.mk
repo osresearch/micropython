@@ -14,8 +14,15 @@ SRC_C += \
 	boards/SENSORWATCH/hpl_slcd.c \
 
 INC += -I$(TOP)/lib/asf4/$(MCU_SERIES_LOWER)/hpl/slcd
+INC += -I$(BOARD_DIR)/config
 
 ASF4_SRC_C += $(addprefix lib/asf4/$(MCU_SERIES_LOWER)/,\
 	hal/src/hal_slcd_sync.c \
+	hpl/core/hpl_init.c \
+	hpl/pm/hpl_pm.c \
+	hpl/mclk/hpl_mclk.c \
+	hpl/gclk/hpl_gclk.c \
+	hpl/oscctrl/hpl_oscctrl.c \
+	hpl/osc32kctrl/hpl_osc32kctrl.c \
 )
 

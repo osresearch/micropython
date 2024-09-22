@@ -66,6 +66,16 @@ static inline uint64_t mp_hal_ticks_ms_64(void) {
     return mp_hal_ticks_us_64() / 1000;
 }
 
+#if defined(MCU_SAML22)
+// there is no usec timer to save on power, only miliseconds
+static inline mp_uint_t mp_hal_ticks_ms(void) {
+    return (mp_uint_t) systick_ms;
+}
+
+static inline mp_uint_t mp_hal_ticks_us(void) {
+    return (mp_uint_t) mp_hal_ticks_ms() << 10;
+}
+#else
 static inline mp_uint_t mp_hal_ticks_ms(void) {
     return (mp_uint_t)mp_hal_ticks_ms_64();
 }
@@ -73,6 +83,7 @@ static inline mp_uint_t mp_hal_ticks_ms(void) {
 static inline mp_uint_t mp_hal_ticks_us(void) {
     return (mp_uint_t)mp_hal_ticks_us_64();
 }
+#endif
 
 #if defined(MCU_SAMD21) || defined(MCU_SAML22)
 

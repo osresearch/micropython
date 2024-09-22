@@ -5,6 +5,8 @@
 #define MICROPY_HW_DFLL_USB_SYNC    (0) // use the 32 KHz crystal instead
 #define MICROPY_PY_MACHINE_DAC (0) // the saml22j18 has no DAC
 
+#define LIGHTSLEEP_CPU_FREQ 8192
+
 // do not bring in the hal utils_assert.h, use the system one instead
 #include <assert.h>
 #define _ASSERT_H_INCLUDED

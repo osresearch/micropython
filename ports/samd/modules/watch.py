@@ -311,7 +311,8 @@ def run():
 				while sec == rtc.datetime()[6]:
 					pass
 			else:
-				machine.deepsleep()
+				# sleep until the next RTC tick
+				machine.lightsleep(1000)
 
 if usb_connected:
 	# just once and force it

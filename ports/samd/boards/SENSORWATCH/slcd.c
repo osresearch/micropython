@@ -96,6 +96,12 @@ static mp_obj_t slcd_init(void) {
     return mp_const_true;
 }
 
+void slcd_deinit(void)
+{
+    slcd_sync_deinit(&SEGMENT_LCD_0);
+    hri_mclk_clear_APBCMASK_SLCD_bit(SLCD);
+}
+
 static mp_obj_t slcd_clear(void) {
     SLCD->SDATAL0.reg = 0;
     SLCD->SDATAL1.reg = 0;

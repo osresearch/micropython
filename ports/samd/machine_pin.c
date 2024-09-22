@@ -336,7 +336,7 @@ static mp_obj_t machine_pin_irq(size_t n_args, const mp_obj_t *pos_args, mp_map_
         GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK2 | EIC_GCLK_ID;
 
         #elif defined(MCU_SAML22)
-        uint32_t irq_num = 3;
+        uint32_t irq_num = EIC_IRQn;
         // Disable all IRQs from the affected source while data is updated.
         NVIC_DisableIRQ(irq_num);
         // Disable EIC
@@ -344,9 +344,9 @@ static mp_obj_t machine_pin_irq(size_t n_args, const mp_obj_t *pos_args, mp_map_
         while (EIC->SYNCBUSY.bit.ENABLE != 0) {
         }
         EIC->INTENCLR.reg = (1 << eic_id);
-        // Enable the clocks
+        // Enable the EIC clock (3 == 32 KHz oscillator)
         MCLK->APBAMASK.bit.EIC_ |= 1;
-        GCLK->PCHCTRL[EIC_GCLK_ID].reg = GCLK_PCHCTRL_CHEN | GCLK_PCHCTRL_GEN_GCLK2;
+        GCLK->PCHCTRL[EIC_GCLK_ID].reg = GCLK_PCHCTRL_CHEN | GCLK_PCHCTRL_GEN_GCLK3;
 
         #elif defined(MCU_SAMD51)
 
@@ -363,7 +363,7 @@ static mp_obj_t machine_pin_irq(size_t n_args, const mp_obj_t *pos_args, mp_map_
         GCLK->PCHCTRL[EIC_GCLK_ID].reg = GCLK_PCHCTRL_CHEN | GCLK_PCHCTRL_GEN_GCLK2;
 
         #endif
-        // Clear the pending interrupts flag
+        // Clear the interrupt flag
         EIC->INTENCLR.reg = (1 << eic_id);
 
         // Update IRQ data.
@@ -379,6 +379,9 @@ static mp_obj_t machine_pin_irq(size_t n_args, const mp_obj_t *pos_args, mp_map_
             EIC->CONFIG[eic_id / 8].reg |= irq->trigger << ((eic_id % 8) * 4);
             EIC->INTENSET.reg = (1 << eic_id);
             EIC->INTFLAG.reg |= (1 << eic_id);
+            // allow a false value to schedule an interrupt, but no handler
+            if (args[ARG_handler].u_obj == mp_const_false)
+              irq->base.handler = mp_const_none;
         }
 
         // Enable EIC (again)
@@ -408,7 +411,7 @@ void pin_irq_deinit_all(void) {
     #if defined(MCU_SAMD21)
     NVIC_DisableIRQ(4);
     #elif defined(MCU_SAML22)
-    NVIC_DisableIRQ(3);
+    NVIC_DisableIRQ(EIC_IRQn);
     #elif defined(MCU_SAMD51)
     for (int i = 12; i < 20; i++) {
         NVIC_DisableIRQ(i);
@@ -420,6 +423,8 @@ void pin_irq_deinit_all(void) {
 void EIC_Handler() {
     uint32_t mask = 1;
     uint32_t isr = EIC->INTFLAG.reg;
+extern void led_green_toggle(void);
+//led_green_toggle();
     for (int eic_id = 0; eic_id < 16; eic_id++, mask <<= 1) {
         // Did the ISR fire?
         if (isr & mask) {

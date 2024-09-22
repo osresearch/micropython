@@ -46,7 +46,9 @@
 #define DBL_TAP_MAGIC_LOADER 0xf01669ef
 #define DBL_TAP_MAGIC_RESET 0xf02669ef
 
+#ifndef LIGHTSLEEP_CPU_FREQ
 #define LIGHTSLEEP_CPU_FREQ 200000
+#endif
 
 #define MICROPY_PY_MACHINE_EXTRA_GLOBALS \
     { MP_ROM_QSTR(MP_QSTR_Pin),                 MP_ROM_PTR(&machine_pin_type) }, \
@@ -141,7 +143,10 @@ static void mp_machine_lightsleep(size_t n_args, const mp_obj_t *args) {
     GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK2 | EIC_GCLK_ID;
 
     #elif defined(MCU_SAML22)
-/* TODO: slow down the clocks */
+    if (duration >= 1000) {
+        // Turn off the various peripherals and wait for an RTC wakeup.
+        saml_sleep(4);
+    } else
     if (duration > 0) {
         uint32_t t0 = systick_ms;
         while ((systick_ms - t0 < duration) && (EIC_occured == false)) {
@@ -176,7 +181,11 @@ static void mp_machine_lightsleep(size_t n_args, const mp_obj_t *args) {
     set_cpu_freq(freq);
 }
 
+
 NORETURN static void mp_machine_deepsleep(size_t n_args, const mp_obj_t *args) {
     mp_machine_lightsleep(n_args, args);
+#if defined(MCU_SAML22)
+    saml_sleep(5);
+#endif
     mp_machine_reset();
 }

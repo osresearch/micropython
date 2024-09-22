@@ -32,6 +32,10 @@
 #include "py/mphal.h"
 #include "samd_soc.h"
 
+#include <hal_init.h>
+
+
+
 static uint32_t cpu_freq = CPU_FREQ;
 static uint32_t peripheral_freq = 1000000;
 static uint32_t dfll48m_calibration;
@@ -54,7 +58,7 @@ uint32_t get_peripheral_freq(void) {
 
 void set_cpu_freq(uint32_t cpu_freq_arg) {
     // Set 1 wait state to be safe
-    NVMCTRL->CTRLB.reg = NVMCTRL_CTRLB_MANW | NVMCTRL_CTRLB_RWS(1);
+    //NVMCTRL->CTRLB.reg = NVMCTRL_CTRLB_MANW | NVMCTRL_CTRLB_RWS(1);
 
     int div = MAX(DFLL48M_FREQ / cpu_freq_arg, 1);
     peripheral_freq = DFLL48M_FREQ / div;
@@ -100,8 +104,9 @@ void set_cpu_freq(uint32_t cpu_freq_arg) {
 #endif
 
     // Set 0 wait states for slower CPU clock
-    NVMCTRL->CTRLB.reg = NVMCTRL_CTRLB_MANW | NVMCTRL_CTRLB_RWS(cpu_freq > 24000000 ? 1 : 0);
+    //NVMCTRL->CTRLB.reg = NVMCTRL_CTRLB_MANW | NVMCTRL_CTRLB_RWS(cpu_freq > 24000000 ? 1 : 0);
     SysTick_Config(cpu_freq / 1000);
+    //SysTick->CTRL  &= ~SysTick_CTRL_TICKINT_Msk;
 }
 
 #if !MICROPY_HW_XOSC32K || MICROPY_HW_DFLL_USB_SYNC
@@ -188,17 +193,28 @@ void check_usb_clock_recovery_mode(void) {
 #define SWCLK GPIO(GPIO_PORTA, 30)
 
 void init_clocks(uint32_t cpu_freq) {
+    init_mcu();
+
+    // per Microchip datasheet clarification DS80000782,
+    // silicon erratum 1.16.1 indicates that the TRNG may leave internal components powered after being disabled.
+    // the workaround is to disable the TRNG by clearing the control register, twice.
+    hri_trng_write_CTRLA_reg(TRNG, 0);
+    hri_trng_write_CTRLA_reg(TRNG, 0);
+
+    // shutdown lots of accessories that init_mcu() turned on
+    MCLK->APBCMASK.reg = MCLK_APBCMASK_SLCD | MCLK_APBCMASK_EVSYS;
+    MCLK->APBBMASK.reg = MCLK_APBBMASK_PORT;
+    MCLK->APBAMASK.reg = MCLK_APBAMASK_OSC32KCTRL | MCLK_APBAMASK_OSCCTRL | MCLK_APBAMASK_MCLK | MCLK_APBAMASK_GCLK | MCLK_APBAMASK_PM;
+
     dfll48m_calibration = 0; // please the compiler
 
     // disable the LED pin (it may have been enabled by the bootloader)
     gpio_set_pin_direction(GPIO(GPIO_PORTA, 20), GPIO_DIRECTION_OFF);
 
     // disable debugger hot-plugging
-/*
     gpio_set_pin_function(SWCLK, GPIO_PIN_FUNCTION_OFF);
     gpio_set_pin_direction(SWCLK, GPIO_DIRECTION_OFF);
     gpio_set_pin_pull_mode(SWCLK, GPIO_PULL_OFF);
-*/
 
     // RAM should be back-biased in STANDBY
     PM->STDBYCFG.bit.BBIASHS = 1;
@@ -206,8 +222,9 @@ void init_clocks(uint32_t cpu_freq) {
     // Use switching regulator for lower power consumption.
     SUPC->VREG.bit.SEL = 1;
 
-    // Use switching regulator for lower power consumption.
-    SUPC->VREG.bit.SEL = 1;
+// todo: brownout stuff
+    // Use more efficient low power regulator
+    SUPC->VREG.bit.LPEFF = 1;
     
     // per Microchip datasheet clarification DS80000782,
     // work around silicon erratum 1.7.2, which causes the microcontroller to lock up on leaving standby:
@@ -236,8 +253,8 @@ void init_clocks(uint32_t cpu_freq) {
     // FDPLL96M: Reference source GCLK1
     //           Used for the CPU clock for freq >= 48Mhz
 
-    NVMCTRL->CTRLB.bit.MANW = 1; // errata "Spurious Writes"
-    NVMCTRL->CTRLB.bit.RWS = 1; // 1 read wait state for 48MHz
+    //NVMCTRL->CTRLB.bit.MANW = 1; // errata "Spurious Writes"
+    //NVMCTRL->CTRLB.bit.RWS = 1; // 1 read wait state for 48MHz
 
 #if 0 // TODO: fix the 32khz oscillator input
     #if MICROPY_HW_XOSC32K
@@ -376,4 +393,88 @@ void enable_sercom_clock(int id) {
     while (GCLK->STATUS.bit.SYNCBUSY) {
     }
 #endif
+}
+
+
+void pm_sleep(uint8_t mode)
+{
+    // enter the lower power mode
+    hri_pm_write_SLEEPCFG_SLEEPMODE_bf(PM, mode);
+
+    // wait for the mode set to actually take, per note in Microchip data
+    // sheet DS60001465, section 19.8.2:
+    //
+    // A small latency happens between the store instruction and actual
+    // writing of the SLEEPCFG register due to bridges. Software has to make
+    // sure the SLEEPCFG register reads the wanted value before issuing WFI
+    // instruction.
+    while (hri_pm_read_SLEEPCFG_SLEEPMODE_bf(PM) != mode)
+       ;
+
+    __DSB();
+    __WFI();
+}
+
+
+// saml_sleep(4) is the lowest power with RAM
+// saml_sleep(5) is even lower power, but recovering is a full reset
+void saml_sleep(const uint8_t mode)
+{
+    // disable brownout detector interrupt, which could inadvertently wake us up.
+    SUPC->INTENCLR.bit.BOD33DET = 1;
+
+    const uint32_t usb_enabled = hri_usbdevice_get_CTRLA_ENABLE_bit(USB);
+    const uint32_t tcc_enabled = hri_tcc_get_CTRLA_ENABLE_bit(TCC0);
+    const uint32_t systick_enabled = SysTick->CTRL & SysTick_CTRL_TICKINT_Msk;
+    const uint32_t eic_enabled = MCLK->APBAMASK.reg & MCLK_APBAMASK_EIC;
+
+    // disable the TCC
+    hri_tcc_clear_CTRLA_ENABLE_bit(TCC0);
+    hri_mclk_clear_APBCMASK_TCC0_bit(MCLK);
+
+    //extern void slcd_deinit(void);
+    //slcd_deinit();
+
+    // port A: always keep PA02 configured as-is; that's our ALARM button.
+    // port A: do not turn off USB if it is enabled
+    uint32_t porta_pins_to_disable = 0xFFFFFFFF;
+    uint32_t portb_pins_to_disable = 0xFFFFFFFF;
+
+    porta_pins_to_disable &= ~(1 <<  2); // ALARM button
+    porta_pins_to_disable &= ~(1 << 23); // MODE button
+    porta_pins_to_disable &= ~(1 << 22); // LIGHT button
+    porta_pins_to_disable &= ~(1 << 20); // red LED
+    porta_pins_to_disable &= ~(1 << 21); // green LED
+
+    if (usb_enabled)
+        porta_pins_to_disable &= ~((1<<24) | (1<<25));
+    gpio_set_port_direction(0, porta_pins_to_disable, GPIO_DIRECTION_OFF);
+    gpio_set_port_direction(1, portb_pins_to_disable, GPIO_DIRECTION_OFF);
+
+    // disable EIC, so only the RTC can wake us
+    MCLK->APBAMASK.reg &= ~eic_enabled;
+
+    // per Microchip datasheet clarification DS80000782,
+    // work around silicon erratum 1.8.4 by disabling the SysTick interrupt, which is
+    // enabled as part of driver init, before going to sleep.
+    SysTick->CTRL &= ~systick_enabled;
+
+    // disable all pins
+    //_watch_disable_all_pins_except_rtc();
+
+    //volatile uint32_t *dbl_tap_ptr = ((volatile uint32_t *)(HSRAM_ADDR + HSRAM_SIZE - 4));
+    //*dbl_tap_ptr = 0xf01669ef; // from the UF2 bootloaer: uf2.h line 255
+
+    pm_sleep(mode);
+
+    // re-enable the TCC if it was enabled
+    if (tcc_enabled) {
+        hri_tcc_set_CTRLA_ENABLE_bit(TCC0);
+        hri_mclk_set_APBCMASK_TCC0_bit(MCLK);
+    }
+
+    // and we awake! re-enable the brownout detector and SysTick interrupt (if it was enabled)
+    //SUPC->INTENSET.bit.BOD33DET = 1;
+    MCLK->APBAMASK.reg |= eic_enabled;
+    SysTick->CTRL |= systick_enabled;
 }

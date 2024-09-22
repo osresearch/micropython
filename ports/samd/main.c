@@ -59,8 +59,18 @@ void samd_main(void) {
         // Execute user scripts.
         int ret = pyexec_file_if_exists("boot.py");
 
+#if defined(MCU_SAML22)
+        // if no power is provided on the vUSB pin, do not enable USB
+        extern bool enable_usb;
+
+        if (enable_usb) {
+            mp_usbd_init();
+            check_usb_clock_recovery_mode();
+        }
+#else
         mp_usbd_init();
         check_usb_clock_recovery_mode();
+#endif
 
         if (ret & PYEXEC_FORCED_EXIT) {
             goto soft_reset_exit;

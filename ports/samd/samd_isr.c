@@ -73,10 +73,10 @@ void Reset_Handler(void) {
     #endif
 
     // SCB->VTOR
-    *((volatile uint32_t *)0xe000ed08) = (uint32_t)&isr_vector;
+    SCB->VTOR = (((uint32_t) &isr_vector) & SCB_VTOR_TBLOFF_Msk);
 
     // SCB->CCR: enable 8-byte stack alignment for IRQ handlers, in accord with EABI
-    *((volatile uint32_t *)0xe000ed14) |= 1 << 9;
+    SCB->CCR |= 1 << 9;
 
     // Initialise the cpu and peripherals
     samd_init();
@@ -110,10 +110,8 @@ void SysTick_Handler(void) {
     }
 }
 
+// usually called at 1 Hz by RTC interrupt interrupts
 void RTC_Handler(void) {
-    extern void led_set(int,int);
-    extern void led_green_toggle(void);
-    //led_green_toggle();
     RTC->MODE2.INTFLAG.reg = ~0;
 }
 
